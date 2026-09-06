@@ -42,14 +42,15 @@ public enum InsertionStrategy: String, Sendable, Codable, CaseIterable {
 
 /// Where the HUD lives.
 public enum HUDAnchor: String, Sendable, Codable, CaseIterable {
-    /// Hugs the notch on notched displays, top-centre elsewhere.
+    /// Continues the notch on displays that have one; a bar cut into the top
+    /// edge of the screen on displays that do not.
     case notch
     case topCenter
     case bottomCenter
 
     public var displayName: String {
         switch self {
-        case .notch: "Below the notch"
+        case .notch: "In the notch"
         case .topCenter: "Top centre"
         case .bottomCenter: "Bottom centre"
         }

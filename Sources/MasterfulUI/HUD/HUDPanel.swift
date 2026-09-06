@@ -22,7 +22,7 @@ final class HUDPanel: NSPanel {
 
         isOpaque = false
         backgroundColor = .clear
-        // The pill draws its own shadow; a window shadow would trace the
+        // The island draws its own shadow; a window shadow would trace the
         // oversized transparent frame instead of the visible shape.
         hasShadow = false
         isMovableByWindowBackground = false
@@ -31,7 +31,10 @@ final class HUDPanel: NSPanel {
         ignoresMouseEvents = true
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
-        level = .statusBar
+        // One above the status bar. The island is cut into the top edge of the
+        // display, so it overlaps the menu bar by design; at `.statusBar` the
+        // two are peers and the menu bar occasionally wins.
+        level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         collectionBehavior = [
             .canJoinAllSpaces,      // follows the user across Spaces
             .fullScreenAuxiliary,   // visible over full-screen apps

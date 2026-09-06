@@ -42,7 +42,8 @@ Two environment switches, both intended to survive into normal use:
 
 - `MASTERFUL_HUD_PREVIEW=1` cycles the HUD through every state with the
   microphone and hotkeys inactive — for iterating on motion without talking to
-  your laptop.
+  your laptop. `MASTERFUL_HUD_ANCHOR=notch|topCenter|bottomCenter` previews one
+  position without touching your real settings.
 - `MASTERFUL_LOG_INPUT=1` traces every observed input event. "My hotkey does
   nothing" has several indistinguishable causes; this tells them apart.
 
@@ -107,8 +108,27 @@ key. If it took focus, the field the user was typing into would lose it and ther
 would be nowhere to insert. Everything else about the window follows from that.
 The window is oversized and fully transparent with all animation happening in
 SwiftUI inside it — animating an `NSWindow` frame in lockstep with its content is
-where floating HUDs get their jank. On a notched Mac the pill is masked at the
-notch line, so it is genuinely occluded on its way out rather than faking it.
+where floating HUDs get their jank.
+
+**Recording is white; outcomes carry colour. Nothing casts a shadow.** Listening
+is the state you see every time you use the app, often for seconds at a stretch,
+so it stays neutral and refuses to compete with the work behind it — a saturated
+tint in the notch reads as an app announcing itself. The states after it are
+brief and rare, and there colour is doing real work. Separately, nothing in the
+app casts a shadow: a shadow is a claim to be floating above the display, and the
+island is cut into it. If something looks like it needs a shadow to be legible,
+the shape or the contrast is wrong.
+
+**The HUD is one black shape that changes size.** On a notched Mac it rests
+exactly filling the notch — same black, same height, same bottom edge — so at
+rest it is invisible, and starting dictation makes the notch appear to widen.
+There is no second panel and nothing cross-fades: `IslandShape` interpolates one
+rounded rectangle's width, height and corner radii, which is why every state
+change reads as the same physical object. It shows a bar while things are going
+well and opens into a card only when there is something to read
+(`DictationPhase.hudPresentation`), which is also why the live transcript is not
+drawn — the one moment you cannot spare the attention to read is while you are
+still speaking. Displays without a notch get the same island as a floating card.
 
 **Clean-up can never change what you said.** `TranscriptGuard` bounds any model
 rewrite by length ratio and token retention, and anything that trips it is

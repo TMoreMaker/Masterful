@@ -6,7 +6,7 @@ import SwiftUI
 public struct OnboardingView: View {
     @Bindable var services: UIServices
     @State private var step: OnboardingStep = .welcome
-    @State private var levelHistory = [Float](repeating: 0, count: Token.Size.waveformBars)
+    @State private var levelHistory = [Float](repeating: 0, count: Token.Size.levelHistory)
     @State private var practiceText = ""
     @State private var pollTask: Task<Void, Never>?
 
@@ -179,7 +179,9 @@ public struct OnboardingView: View {
             if services.permissions.microphone {
                 Card {
                     SectionHeader("Check your input", subtitle: "Say something — the bars should move.")
-                    WaveformView(samples: levelHistory, tint: AppSurface.accent)
+                    // Wider than the HUD's four bars: there is room here, and this is
+                    // the one screen whose job is to prove the microphone works.
+                    WaveformView(samples: levelHistory, tint: AppSurface.accent, bars: 12)
                         .frame(height: 44)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Token.Space.sm)

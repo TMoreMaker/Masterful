@@ -4,12 +4,12 @@ import SwiftUI
 
 /// Owns the HUD window and keeps it positioned.
 ///
-/// The window is deliberately much larger than the pill and fully transparent.
+/// The window is deliberately much larger than the island and fully transparent.
 /// Animating an `NSWindow`'s frame in lockstep with its SwiftUI content is where
 /// floating HUDs get their jank — the window resizes on one clock and the layer
 /// on another. Giving SwiftUI a generous fixed canvas removes the problem
-/// entirely: the window never moves during an animation, and the pill is free to
-/// spring around inside it.
+/// entirely: the window never moves during an animation, and the island is free
+/// to spring around inside it.
 @MainActor
 public final class HUDController {
 
@@ -20,7 +20,7 @@ public final class HUDController {
     private var screenObserverTask: Task<Void, Never>?
     private var anchor: HUDAnchor
 
-    /// Comfortably wider and taller than the pill can ever be, so the shadow and
+    /// Comfortably wider and taller than the island can ever be, so the shadow and
     /// the overshoot on the entrance spring are never clipped.
     private static let canvasSize = CGSize(width: 720, height: 180)
 
@@ -73,7 +73,7 @@ public final class HUDController {
             self.model.isPresented = false
             onDismissed()
             // Let the exit animation finish before the window disappears,
-            // otherwise the pill vanishes instead of retracting.
+            // otherwise the island vanishes instead of retracting into the notch.
             try? await Task.sleep(for: .milliseconds(220))
             guard !Task.isCancelled else { return }
             self.panel?.orderOut(nil)
@@ -100,7 +100,7 @@ public final class HUDController {
             contentRect: NSRect(origin: .zero, size: Self.canvasSize)
         )
         let hosting = NSHostingView(
-            rootView: HUDView(model: model, anchorInset: anchorInset(for: activeScreen))
+            rootView: HUDView(model: model, metrics: metrics(for: activeScreen))
         )
         hosting.frame = NSRect(origin: .zero, size: Self.canvasSize)
         panel.contentView = hosting
@@ -115,22 +115,50 @@ public final class HUDController {
         return NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
     }
 
-    /// Distance from the top of the window down to where the pill may begin.
+    /// Everything the island needs to know about where it is being drawn.
     ///
-    /// On a notched display `safeAreaInsets.top` is the notch's height, so the
-    /// pill tucks exactly beneath it. Elsewhere we fall back to the menu bar's
-    /// thickness, which produces the same relationship to the top of the screen.
-    private func anchorInset(for screen: NSScreen?) -> CGFloat {
+    /// The notch's dimensions are measured rather than assumed. `safeAreaInsets`
+    /// gives its height; the two auxiliary areas are the strips of menu bar
+    /// either side of it, so what they do not cover is the notch itself. Both
+    /// vary by model — a 14-inch and a 16-inch MacBook Pro do not share a notch —
+    /// and being a couple of points out is instantly visible, because the whole
+    /// effect rests on the island's edge landing exactly on the notch's.
+    private func metrics(for screen: NSScreen?) -> HUDMetrics {
         switch anchor {
-        case .bottomCenter:
-            return 0
         case .notch:
-            guard let screen else { return NSStatusBar.system.thickness }
-            let notch = screen.safeAreaInsets.top
-            return notch > 0 ? notch : NSStatusBar.system.thickness
+            guard let screen else {
+                return HUDMetrics(isAttached: true, notchWidth: 0, notchHeight: 0)
+            }
+            return HUDMetrics(
+                isAttached: true,
+                notchWidth: notchWidth(of: screen),
+                notchHeight: screen.safeAreaInsets.top
+            )
+
         case .topCenter:
-            return NSStatusBar.system.thickness + Token.Space.xs
+            // Floating below the menu bar rather than welded to the bezel. Same
+            // island, same states, but it reads as a card because it has to —
+            // there is no notch here for it to pretend to be.
+            return HUDMetrics(
+                isAttached: false,
+                notchWidth: 0,
+                notchHeight: 0,
+                topOffset: NSStatusBar.system.thickness + Token.Space.xs
+            )
+
+        case .bottomCenter:
+            return .floating
         }
+    }
+
+    /// Zero on a display without a notch, which is also exactly what the island
+    /// wants: the gap in the middle of the compact bar simply closes.
+    private func notchWidth(of screen: NSScreen) -> CGFloat {
+        guard screen.safeAreaInsets.top > 0,
+              let left = screen.auxiliaryTopLeftArea,
+              let right = screen.auxiliaryTopRightArea
+        else { return 0 }
+        return max(0, screen.frame.width - left.width - right.width)
     }
 
     private func reposition() {
@@ -140,6 +168,9 @@ public final class HUDController {
 
         let origin: CGPoint = switch anchor {
         case .notch, .topCenter:
+            // Flush with the physical top of the display, menu bar included. An
+            // attached island has to start at the bezel; a floating one insets
+            // itself from there.
             CGPoint(
                 x: frame.midX - size.width / 2,
                 y: frame.maxY - size.height
@@ -154,7 +185,7 @@ public final class HUDController {
         panel.setFrame(NSRect(origin: origin, size: size), display: false)
 
         if let hosting = panel.contentView as? NSHostingView<HUDView> {
-            hosting.rootView = HUDView(model: model, anchorInset: anchorInset(for: screen))
+            hosting.rootView = HUDView(model: model, metrics: metrics(for: screen))
         }
     }
 }

@@ -106,9 +106,10 @@ public struct KeyCapView: View {
             .padding(.horizontal, isEmphasised ? Token.Space.md : Token.Space.sm)
             .padding(.vertical, isEmphasised ? Token.Space.sm : Token.Space.xxs)
             .background(
+                // No shadow: the keycap is described by its border and its
+                // fill. See `Palette` — the rule holds outside the HUD too.
                 RoundedRectangle(cornerRadius: Token.Radius.sm, style: .continuous)
                     .fill(AppSurface.card)
-                    .shadow(color: .black.opacity(0.12), radius: 1, y: 1)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Token.Radius.sm, style: .continuous)
