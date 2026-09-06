@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>Masterful</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.tlotliso.masterful</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Masterful</string>
+	<key>CFBundleDisplayName</key>
+	<string>Masterful</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+
+	<!-- Menu-bar agent: no Dock icon, no app-switcher entry, and critically
+	     never steals focus from the text field we are about to insert into. -->
+	<key>LSUIElement</key>
+	<true/>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Masterful listens while you hold your dictation key so it can turn your speech into text.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Masterful transcribes your speech on this Mac. Audio is not sent anywhere.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Tlotliso Morethi</string>
+</dict>
+</plist>

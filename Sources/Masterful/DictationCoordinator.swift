@@ -1,0 +1,512 @@
+import AVFoundation
+import AppKit
+import AudioCapture
+import Foundation
+import InputControl
+import MasterfulKit
+import MasterfulUI
+import Observation
+import Persistence
+import Refinement
+import TextInsertion
+import Transcription
+
+/// Wires the state machine to the real world.
+///
+/// This is the only type that knows about every subsystem, and it deliberately
+/// contains no policy: it applies an intent to `DictationSession`, then performs
+/// whatever effects come back. All the decisions — when to latch, when to give
+/// up, how long the HUD lingers — live in the state machine where they can be
+/// tested. This file is plumbing, and it should stay that way.
+@MainActor
+@Observable
+public final class DictationCoordinator {
+
+    public enum Readiness: Equatable {
+        case starting
+        case ready
+        case needsAccessibility
+        case needsMicrophone
+        case downloadingModel
+        case failed(String)
+    }
+
+    public private(set) var readiness: Readiness = .starting
+    public private(set) var phase: DictationPhase = .idle
+    public private(set) var hotkeyActive = false
+
+    /// Live input level, mirrored out for the onboarding microphone test.
+    public var onInputLevel: ((AudioLevel) -> Void)?
+
+    private var session = DictationSession()
+
+    private let settingsStore: SettingsStore
+    private let historyStore: HistoryStore
+    private let hud: HUDController
+    private let hotkeys: HotkeyEngine
+    private let capture = AudioCaptureEngine()
+    private let transcriber: any TranscriptionEngine
+
+    private var sessionTask: Task<Void, Never>?
+    private var audioPumpTask: Task<Void, Never>?
+    private var levelPumpTask: Task<Void, Never>?
+    private var micTestTask: Task<Void, Never>?
+
+    /// Kept so the history record can report a speaking pace.
+    private var captureStartedAt: Date?
+    private var lastSpeechDuration: TimeInterval = 0
+    /// The transcript before clean-up, retained so history can show both.
+    private var lastRawTranscript = ""
+    /// Text and spoken commands, in the order they were said. Parsed before
+    /// refinement so the model never sees a command and never reformats one.
+    private var pendingSegments: [TranscriptSegment] = []
+
+    public init(
+        settingsStore: SettingsStore,
+        historyStore: HistoryStore,
+        transcriber: any TranscriptionEngine = SpeechAnalyzerEngine()
+    ) {
+        self.settingsStore = settingsStore
+        self.historyStore = historyStore
+        self.transcriber = transcriber
+        self.hud = HUDController(anchor: settingsStore.settings.hudAnchor)
+        self.hotkeys = HotkeyEngine(settings: settingsStore.settings)
+        self.hotkeys.onIntent = { [weak self] intent in
+            self?.handle(intent)
+        }
+    }
+
+    private var settings: Settings { settingsStore.settings }
+
+    /// Exposed solely for `HUDPreviewDriver`, so motion work does not require
+    /// speaking into the machine.
+    var hudForPreview: HUDController { hud }
+
+    /// Typed terms plus anything stored in the vocabulary database.
+    private var effectiveVocabulary: [String] {
+        var terms = settings.vocabulary
+        terms.append(contentsOf: historyStore.vocabularyStrings())
+        return Array(Set(terms)).sorted()
+    }
+
+    // MARK: - Bootstrap
+
+    public func start() async {
+        readiness = .starting
+
+        guard await MicrophonePermission.request() else {
+            readiness = .needsMicrophone
+            return
+        }
+
+        readiness = .downloadingModel
+        let preferredFormat: AVAudioFormatBox
+        do {
+            // Prepare the recogniser first: it names the audio format to capture
+            // in, and it is the step that may need to download a model.
+            let format = try await transcriber.prepare(
+                locale: Locale(identifier: settings.localeIdentifier)
+            )
+            preferredFormat = AVAudioFormatBox(format)
+        } catch {
+            Log.lifecycle.error("Transcriber preparation failed: \(error.localizedDescription, privacy: .public)")
+            readiness = .failed("Speech model unavailable")
+            return
+        }
+
+        do {
+            try capture.prepare(targetFormat: preferredFormat.format)
+        } catch {
+            Log.lifecycle.error("Audio preparation failed: \(error.localizedDescription, privacy: .public)")
+            readiness = .failed("Microphone unavailable")
+            return
+        }
+
+        guard AccessibilityPermission.isGranted else {
+            // Ask on first run rather than waiting to be asked. The system
+            // prompt is also what registers the app in the Accessibility list —
+            // without it the user is told to grant permission for an app that
+            // does not appear there yet.
+            AccessibilityPermission.request()
+            readiness = .needsAccessibility
+            return
+        }
+
+        hotkeyActive = hotkeys.start()
+        readiness = hotkeyActive ? .ready : .needsAccessibility
+        historyStore.pruneRecords(olderThan: settings.historyRetentionDays)
+        Log.lifecycle.info("Masterful ready — \(self.settings.triggers.count) binding(s): \(self.settings.triggersDisplayString, privacy: .public)")
+    }
+
+    public func retryAfterPermissionChange() async {
+        await start()
+    }
+
+    /// Stands the hotkey engine down while a new binding is being recorded.
+    public func setHotkeyRecording(_ isRecording: Bool) {
+        hotkeys.setRecording(isRecording)
+    }
+
+    public func applySettingsChange() {
+        hotkeys.apply(settings: settings)
+        hud.setAnchor(settings.hudAnchor)
+    }
+
+    public func shutdown() {
+        hotkeys.stop()
+        capture.shutdown()
+        sessionTask?.cancel()
+        audioPumpTask?.cancel()
+        levelPumpTask?.cancel()
+        micTestTask?.cancel()
+    }
+
+    public var isModelReady: Bool {
+        switch readiness {
+        case .ready, .needsAccessibility: true
+        default: false
+        }
+    }
+
+    // MARK: - Microphone test
+
+    /// Opens the microphone purely to display a level, with no recogniser
+    /// attached. Used by onboarding to prove the input works before asking the
+    /// user to trust it with a sentence.
+    public func startMicTest() {
+        guard micTestTask == nil, !phase.isCapturing else { return }
+        micTestTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let streams = try self.capture.start()
+                for await level in streams.levels {
+                    guard !Task.isCancelled else { break }
+                    self.onInputLevel?(level)
+                }
+            } catch {
+                Log.audio.error("Mic test failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    public func stopMicTest() {
+        guard micTestTask != nil else { return }
+        micTestTask?.cancel()
+        micTestTask = nil
+        capture.stop(tail: .zero)
+        onInputLevel?(.silence)
+    }
+
+    // MARK: - Intent loop
+
+    func handle(_ intent: DictationIntent) {
+        // Refuse before the microphone ever opens. Dictating into a password
+        // field would route a credential through a recogniser and the clipboard.
+        if case .beginListening = intent, SecureInput.isActive {
+            apply(.blocked(.secureInputActive))
+            return
+        }
+        if case .beginListening = intent { stopMicTest() }
+        apply(intent)
+    }
+
+    private func apply(_ intent: DictationIntent) {
+        let previous = session.phase
+        let effects = session.apply(intent)
+        phase = session.phase
+        hud.apply(phase: session.phase, transcript: session.transcript)
+
+        // One line per real transition. Volatile transcript updates arrive many
+        // times a second and are excluded deliberately — logging those would
+        // bury the lifecycle in noise and make the log useless for the thing it
+        // exists for, which is answering "what happened to my dictation".
+        if previous != session.phase {
+            Log.session.info(
+                "\(Self.describe(previous), privacy: .public) → \(Self.describe(self.session.phase), privacy: .public)"
+            )
+        }
+
+        for effect in effects {
+            perform(effect)
+        }
+    }
+
+    private nonisolated static func describe(_ phase: DictationPhase) -> String {
+        switch phase {
+        case .idle: "idle"
+        case .listening(let mode): mode == .latched ? "listening(latched)" : "listening"
+        case .transcribing: "transcribing"
+        case .refining: "refining"
+        case .inserting: "inserting"
+        case .delivered(let delivery):
+            "delivered(\(delivery.wordCount) words → \(delivery.destination == .clipboard ? "clipboard" : "field"))"
+        case .failed(let error): "failed(\(error.userMessage))"
+        case .blocked(let reason): "blocked(\(reason.userMessage))"
+        }
+    }
+
+    private func perform(_ effect: DictationEffect) {
+        switch effect {
+        case .presentHUD:
+            hud.present()
+
+        case .dismissHUD(let delay):
+            hud.dismiss(after: delay) { [weak self] in
+                self?.apply(.dismiss)
+            }
+
+        case .startCapture:
+            beginCapture()
+
+        case .stopCapture(let tail):
+            if let started = captureStartedAt {
+                lastSpeechDuration = Date().timeIntervalSince(started)
+            }
+            capture.stop(tail: tail)
+            levelPumpTask?.cancel()
+
+        case .finalizeTranscription:
+            Task { [transcriber] in
+                do {
+                    try await transcriber.finish()
+                } catch {
+                    Log.transcription.error("Finalise failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+
+        case .cancelTranscription:
+            sessionTask?.cancel()
+            audioPumpTask?.cancel()
+            levelPumpTask?.cancel()
+            Task { [transcriber] in await transcriber.cancel() }
+
+        case .refine(let text):
+            lastRawTranscript = text
+            refine(text)
+
+        case .insert(let text):
+            insert(text)
+
+        case .feedback(let feedback):
+            play(feedback)
+        }
+    }
+
+    // MARK: - Capture pipeline
+
+    private func beginCapture() {
+        sessionTask?.cancel()
+        audioPumpTask?.cancel()
+        levelPumpTask?.cancel()
+        hud.model.resetLevels()
+        captureStartedAt = Date()
+
+        // Warm the model while the user is still talking. This is free latency:
+        // weight loading costs the better part of a second cold, and we have the
+        // whole utterance to hide it in.
+        if settings.refinement == .onDevice {
+            let profile = settings.profile(
+                forBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            )
+            FoundationModelsRefiner.prewarm(profile: profile)
+        }
+
+        let vocabulary = effectiveVocabulary
+
+        sessionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                // Order matters: the recogniser must be accepting input before
+                // the first buffer arrives, or the opening syllable is dropped.
+                let updates = try await self.transcriber.beginSession(vocabulary: vocabulary)
+                let streams = try self.capture.start()
+
+                self.audioPumpTask = Task.detached { [transcriber = self.transcriber] in
+                    for await chunk in streams.audio {
+                        await transcriber.append(chunk)
+                    }
+                }
+
+                self.levelPumpTask = Task { @MainActor [weak self] in
+                    for await level in streams.levels {
+                        self?.hud.push(level: level)
+                    }
+                }
+
+                for try await update in updates {
+                    guard !Task.isCancelled else { return }
+                    if update.isFinal {
+                        self.apply(.finalTranscript(update.text))
+                    } else {
+                        self.apply(.partialTranscript(update.text))
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                Log.transcription.error("Session failed: \(error.localizedDescription, privacy: .public)")
+                self.apply(.failed(.transcriptionFailed(error.localizedDescription)))
+            }
+        }
+    }
+
+    // MARK: - Refine and insert
+
+    private func refine(_ text: String) {
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        let bundleID = frontmost?.bundleIdentifier
+
+        // Commands are extracted first, deliberately. If the clean-up model saw
+        // "dash enter" it would tidy it into prose, and the action would be
+        // silently turned back into text.
+        let parser = VoiceCommandParser(
+            configuration: .init(prefix: settings.voiceCommandPrefix)
+        )
+        let segments = settings.voiceCommandsEnabled ? parser.parse(text) : [.text(text)]
+        // Resolved once, here, so every stage in the ladder shapes the text for
+        // the same destination even if the user switches apps mid-flight.
+        let profile = settings.profile(forBundleID: bundleID)
+        let context = RefinementContext(
+            applicationBundleID: bundleID,
+            applicationName: frontmost?.localizedName,
+            vocabulary: effectiveVocabulary,
+            profile: profile
+        )
+        let refiner = RefinerFactory.make(
+            mode: settings.refinement,
+            profile: profile,
+            provider: settings.remoteProvider
+        )
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            var refined: [TranscriptSegment] = []
+            for segment in segments {
+                switch segment {
+                case .text(let raw):
+                    let output = await refiner.refine(raw, context: context)
+                    if !output.isEmpty { refined.append(.text(output)) }
+                case .command(let command):
+                    refined.append(.command(command))
+                }
+            }
+            self.pendingSegments = refined
+
+            // A dictation can be nothing but commands. The state machine treats
+            // empty text as "didn't catch that", so give it the command names —
+            // which is also what the HUD and history should show.
+            let text = refined.compactMap { if case .text(let t) = $0 { t } else { nil } }
+                .joined(separator: " ")
+            let display = text.isEmpty ? Self.summarise(refined) : text
+            self.apply(.refined(display))
+        }
+    }
+
+    /// "Return", or "Select all, then Copy".
+    private nonisolated static func summarise(_ segments: [TranscriptSegment]) -> String {
+        let names = segments.compactMap { segment -> String? in
+            if case .command(let command) = segment { command.displayName } else { nil }
+        }
+        return names.joined(separator: ", then ")
+    }
+
+    private func insert(_ text: String) {
+        let coordinator = InsertionCoordinator(strategy: settings.insertion)
+        let executor = KeyCommandExecutor()
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        let bundleID = frontmost?.bundleIdentifier
+        let appName = frontmost?.localizedName
+        // Fall back to a single text segment when commands are off, so this path
+        // stays identical for ordinary dictation.
+        let segments = pendingSegments.isEmpty ? [TranscriptSegment.text(text)] : pendingSegments
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            var insertedText = ""
+            var destination = Destination.focusedField
+            var commandNames: [String] = []
+
+            // Performed in the order they were spoken, so "name dash tab email"
+            // fills two fields rather than typing everything into the first.
+            for segment in segments {
+                switch segment {
+                case .text(let piece):
+                    switch await coordinator.insert(piece) {
+                    case .inserted(let where_):
+                        insertedText += insertedText.isEmpty ? piece : " " + piece
+                        destination = where_
+                    case .failed(let reason):
+                        self.apply(.failed(.insertionFailed(reason)))
+                        return
+                    }
+                case .command(let command):
+                    guard await executor.perform(command) else {
+                        self.apply(.failed(.insertionFailed("Couldn't send \(command.displayName)")))
+                        return
+                    }
+                    commandNames.append(command.displayName)
+                }
+            }
+
+            let summary = commandNames.isEmpty
+                ? nil
+                : commandNames.joined(separator: ", then ")
+
+            self.recordHistory(
+                finalText: insertedText.isEmpty ? (summary ?? text) : insertedText,
+                bundleID: bundleID,
+                appName: appName,
+                destination: destination
+            )
+            self.apply(.delivered(Delivery(
+                characterCount: insertedText.count,
+                wordCount: insertedText.split(whereSeparator: \.isWhitespace).count,
+                destination: destination,
+                commandSummary: summary
+            )))
+            self.pendingSegments = []
+        }
+    }
+
+    private func recordHistory(
+        finalText: String,
+        bundleID: String?,
+        appName: String?,
+        destination: Destination
+    ) {
+        guard settings.historyEnabled else { return }
+        historyStore.record(
+            rawTranscript: lastRawTranscript,
+            finalText: finalText,
+            speechDuration: lastSpeechDuration,
+            applicationBundleID: bundleID,
+            applicationName: appName,
+            engineName: transcriber.displayName,
+            refinementMode: settings.refinement,
+            destination: destination
+        )
+    }
+
+    private func play(_ feedback: Feedback) {
+        guard settings.soundEffects else { return }
+        let name: String? = switch feedback {
+        case .started: "Tink"
+        case .delivered: "Pop"
+        case .rejected: "Funk"
+        }
+        if let name, let sound = NSSound(named: name) {
+            sound.volume = 0.35
+            sound.play()
+        }
+    }
+}
+
+/// Carries an `AVAudioFormat` across an actor hop.
+///
+/// `AVAudioFormat` is immutable once created but not marked `Sendable`, and this
+/// is the one place a format crosses isolation domains.
+struct AVAudioFormatBox: @unchecked Sendable {
+    let format: AVAudioFormat?
+    init(_ format: AVAudioFormat?) { self.format = format }
+}

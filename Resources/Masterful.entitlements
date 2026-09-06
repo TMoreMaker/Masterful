@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Deliberately NOT sandboxed.
+
+	  A CGEventTap and the Accessibility APIs are categorically unavailable to
+	  sandboxed applications, and this app cannot function without either. That
+	  is inherent to the class of tool, not a shortcut — and it permanently rules
+	  out Mac App Store distribution.
+	-->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+</dict>
+</plist>
