@@ -17,10 +17,11 @@ public struct CapturedAudio: @unchecked Sendable {
 
 /// Microphone capture, format conversion and level metering.
 ///
-/// The engine is built and prepared at launch and then left alone, so pressing
-/// the hotkey pays for `start()` only — tens of milliseconds — rather than
-/// graph construction. Capture is gated by a flag read on the audio thread, so
-/// the tap stays installed across sessions.
+/// The graph — tap, converter, format — is built once at launch and reused, so
+/// pressing the hotkey pays for `start()` only rather than graph construction.
+/// The hardware itself is not held open that cheaply: macOS lights the recording
+/// indicator for as long as the input device is running, so the engine is
+/// stopped after `idleGrace` of silence and restarted on the next session.
 public final class AudioCaptureEngine: @unchecked Sendable {
 
     public enum CaptureError: Error, Sendable {
@@ -46,7 +47,20 @@ public final class AudioCaptureEngine: @unchecked Sendable {
 
     private var configurationObserver: NSObjectProtocol?
     private var stopWorkItem: DispatchWorkItem?
+    private var idleWorkItem: DispatchWorkItem?
+    /// Serialises every start/stop of the graph. Teardown runs here on a timer
+    /// and `start()` hops here synchronously, so the two can never interleave
+    /// and leave the microphone stopped while a session believes it is open.
     private let queue = DispatchQueue(label: "com.tlotliso.masterful.audio", qos: .userInitiated)
+
+    /// How long the microphone stays open after a session ends.
+    ///
+    /// Restarting the graph costs a few tens of milliseconds, so back-to-back
+    /// dictations should not pay for it — but leaving it running is what makes
+    /// the orange recording indicator sit lit all day, which is not a thing a
+    /// dictation app is allowed to do. A few seconds buys the common case and
+    /// releases the hardware for everything else.
+    public static let idleGrace = Duration.seconds(4)
 
     public init() {}
 
@@ -107,6 +121,8 @@ public final class AudioCaptureEngine: @unchecked Sendable {
     public func start() throws -> (audio: AsyncStream<CapturedAudio>, levels: AsyncStream<AudioLevel>) {
         stopWorkItem?.cancel()
         stopWorkItem = nil
+        idleWorkItem?.cancel()
+        idleWorkItem = nil
 
         let (audioStream, audioContinuation) = AsyncStream<CapturedAudio>.makeStream(
             // Never stall the audio thread. If the recogniser falls behind,
@@ -127,13 +143,22 @@ public final class AudioCaptureEngine: @unchecked Sendable {
             $0.isCapturing = true
         }
 
-        if !engine.isRunning {
+        // Synchronous, and on the same queue the idle teardown uses: if a
+        // teardown was already executing when the hotkey came down, this blocks
+        // behind it rather than racing it and starting an engine that is about
+        // to be stopped.
+        var failure: Error?
+        queue.sync {
+            guard !engine.isRunning else { return }
             do {
                 try engine.start()
             } catch {
-                stateLock.withLock { $0.isCapturing = false }
-                throw CaptureError.engineFailed(error.localizedDescription)
+                failure = error
             }
+        }
+        if let failure {
+            stateLock.withLock { $0.isCapturing = false }
+            throw CaptureError.engineFailed(failure.localizedDescription)
         }
 
         Log.audio.info("Capture started")
@@ -145,8 +170,7 @@ public final class AudioCaptureEngine: @unchecked Sendable {
     /// The delay is not politeness — people trail off, and cutting the stream at
     /// the instant the key comes up reliably clips the last word.
     public func stop(tail: Duration) {
-        let seconds = Double(tail.components.seconds)
-            + Double(tail.components.attoseconds) / 1e18
+        let seconds = tail.seconds
 
         stopWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
@@ -158,19 +182,42 @@ public final class AudioCaptureEngine: @unchecked Sendable {
                 $0.audioContinuation = nil
                 $0.levelContinuation = nil
             }
-            // The engine keeps running with the tap installed; only the gate
-            // closes. Restarting the graph on every utterance is a needless
-            // hundred milliseconds and makes the mic indicator flicker.
+            // Only the gate closes here. The hardware is released separately,
+            // after the idle grace, so a second utterance a beat later does not
+            // restart the graph — and does not flicker the indicator.
             Log.audio.info("Capture stopped")
         }
         stopWorkItem = work
         queue.asyncAfter(deadline: .now() + max(0, seconds), execute: work)
+
+        scheduleIdleTeardown(after: max(0, seconds) + Self.idleGrace.seconds)
+    }
+
+    /// Releases the input device once the app has been quiet for a while.
+    ///
+    /// This is what turns the system recording indicator off. It runs on the
+    /// audio queue and re-checks the gate under the lock, so a session that
+    /// started in the meantime is never cut off.
+    private func scheduleIdleTeardown(after seconds: Double) {
+        idleWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard !self.stateLock.withLock({ $0.isCapturing }) else { return }
+            guard self.engine.isRunning else { return }
+            self.engine.stop()
+            Log.audio.info("Microphone released")
+        }
+        idleWorkItem = work
+        queue.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
     /// Fully tears down the graph. Used when the app deactivates dictation
     /// entirely, so the microphone indicator goes away.
     public func shutdown() {
         stopWorkItem?.cancel()
+        stopWorkItem = nil
+        idleWorkItem?.cancel()
+        idleWorkItem = nil
         stateLock.withLock {
             $0.isCapturing = false
             $0.audioContinuation?.finish()
@@ -178,7 +225,9 @@ public final class AudioCaptureEngine: @unchecked Sendable {
             $0.audioContinuation = nil
             $0.levelContinuation = nil
         }
-        if engine.isRunning { engine.stop() }
+        queue.sync {
+            if engine.isRunning { engine.stop() }
+        }
     }
 
     // MARK: - Audio thread
@@ -296,13 +345,24 @@ public final class AudioCaptureEngine: @unchecked Sendable {
             Log.audio.notice("Input configuration changed — rebuilding graph")
             let wasCapturing = self.stateLock.withLock { $0.isCapturing }
             do {
-                if self.engine.isRunning { self.engine.stop() }
-                try self.prepare(targetFormat: targetFormat)
-                if wasCapturing { try self.engine.start() }
+                try self.queue.sync {
+                    if self.engine.isRunning { self.engine.stop() }
+                    try self.prepare(targetFormat: targetFormat)
+                    // Only reopen the device if a session is actually running.
+                    // Rebuilding while idle must not light the indicator.
+                    if wasCapturing { try self.engine.start() }
+                }
             } catch {
                 Log.audio.error("Rebuild failed: \(error.localizedDescription, privacy: .public)")
             }
         }
+    }
+}
+
+private extension Duration {
+    /// `DispatchQueue` deals in seconds; `Duration` does not hand them over.
+    var seconds: Double {
+        Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }
 

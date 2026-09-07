@@ -103,6 +103,20 @@ the double-tap window before acting adds the whole window to every push-to-talk
 utterance. Instead the microphone opens immediately and a short release holds it
 open for a possible second tap. See `HotkeyResolver`.
 
+**The microphone is released when you stop talking.** The audio graph — tap,
+converter, format — is built once and reused, because rebuilding it per utterance
+is latency nobody asked for. The *device* is a different matter: macOS lights the
+recording indicator for as long as the input device is running, not while buffers
+are being read, so an engine left up between sessions is an orange dot that never
+goes out. `AudioCaptureEngine` closes the gate after the capture tail and then
+stops the engine after `idleGrace`, which is what turns the indicator off; the
+next hotkey press pays tens of milliseconds to start it again, and back-to-back
+dictations inside the grace pay nothing. Start and teardown are serialised on one
+queue, so a teardown firing as a session begins can never leave the microphone
+stopped while the session believes it is open. On a Bluetooth headset this is
+visible: opening the mic renegotiates the device down to its hands-free profile
+and releasing it restores playback quality, once per dictation.
+
 **The HUD must never take focus.** A non-activating `NSPanel` that cannot become
 key. If it took focus, the field the user was typing into would lose it and there
 would be nowhere to insert. Everything else about the window follows from that.
