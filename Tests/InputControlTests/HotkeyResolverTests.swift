@@ -271,8 +271,25 @@ struct MultipleBindingTests {
         var original = MasterfulKit.Settings()
         original.triggers = [.globeKey, Shortcut(trigger: .mouseButton(4))]
         original.refinement = .onDevice
+        original.duckOtherAudio = false
+        original.duckLevel = 0.4
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(MasterfulKit.Settings.self, from: data)
         #expect(decoded == original)
+    }
+
+    /// The reason the decoder is written by hand: a file saved before ducking
+    /// existed must gain the new keys at their defaults, rather than throwing
+    /// and silently resetting everything else the user configured.
+    @Test("Settings saved before ducking existed decode with it on")
+    func decodesFileWithoutDuckingKeys() throws {
+        let legacy = "{\"refinement\":\"onDevice\",\"voiceCommandPrefix\":\"dash\"}"
+        let decoded = try JSONDecoder().decode(
+            MasterfulKit.Settings.self, from: Data(legacy.utf8)
+        )
+        #expect(decoded.duckOtherAudio == true)
+        #expect(decoded.duckLevel == 0.25)
+        #expect(decoded.refinement == .onDevice)
+        #expect(decoded.voiceCommandPrefix == "dash")
     }
 }

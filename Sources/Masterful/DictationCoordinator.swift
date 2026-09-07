@@ -45,6 +45,7 @@ public final class DictationCoordinator {
     private let hud: HUDController
     private let hotkeys: HotkeyEngine
     private let capture = AudioCaptureEngine()
+    private let ducker = OutputDucker()
     private let transcriber: any TranscriptionEngine
 
     private var sessionTask: Task<Void, Never>?
@@ -155,6 +156,9 @@ public final class DictationCoordinator {
     public func shutdown() {
         hotkeys.stop()
         capture.shutdown()
+        // Before anything else can fail: quitting with the machine left at a
+        // quarter volume would be the app's most annoying possible parting gift.
+        ducker.restoreImmediately()
         sessionTask?.cancel()
         audioPumpTask?.cancel()
         levelPumpTask?.cancel()
@@ -263,6 +267,7 @@ public final class DictationCoordinator {
                 lastSpeechDuration = Date().timeIntervalSince(started)
             }
             capture.stop(tail: tail)
+            ducker.restore(after: tail)
             levelPumpTask?.cancel()
 
         case .finalizeTranscription:
@@ -300,6 +305,10 @@ public final class DictationCoordinator {
         levelPumpTask?.cancel()
         hud.model.resetLevels()
         captureStartedAt = Date()
+
+        if settings.duckOtherAudio {
+            ducker.duck(to: settings.duckLevel)
+        }
 
         // Warm the model while the user is still talking. This is free latency:
         // weight loading costs the better part of a second cold, and we have the

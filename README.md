@@ -117,6 +117,19 @@ stopped while the session believes it is open. On a Bluetooth headset this is
 visible: opening the mic renegotiates the device down to its hands-free profile
 and releasing it restores playback quality, once per dictation.
 
+**Other audio is ducked, not paused, and never left ducked.** macOS has no
+public per-application output volume — the tools that really do it ship a kernel
+driver — so `OutputDucker` fades the default output device instead, which lowers
+everything rather than just the browser tab. Three details make that acceptable
+rather than rude: it only ducks when something is actually playing, so it never
+captures a volume to restore that nobody was listening to; it fades over ~180 ms,
+because a step change reads as the media player being yanked; and on the way back
+up it checks the volume is still the one it set, so reaching for the volume keys
+mid-sentence beats anything the app remembers. Restore waits out the capture
+tail — bringing the video back while the microphone is still open would put it in
+the recording — and the original volume is restored on quit, against the device
+it was taken from rather than whatever is default by then.
+
 **The HUD must never take focus.** A non-activating `NSPanel` that cannot become
 key. If it took focus, the field the user was typing into would lose it and there
 would be nowhere to insert. Everything else about the window follows from that.

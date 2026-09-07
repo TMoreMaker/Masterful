@@ -102,6 +102,16 @@ public struct Settings: Sendable, Codable, Equatable {
     public var voiceCommandPrefix: String = "dash"
 
     public var soundEffects: Bool = false
+
+    /// Lower whatever else is playing while you dictate.
+    ///
+    /// Speaking over a video you are half-listening to is the common case, not
+    /// the exotic one, and the alternative is reaching for the volume keys
+    /// before every sentence.
+    public var duckOtherAudio: Bool = true
+    /// The fraction of its own volume other audio drops to while listening.
+    public var duckLevel: Double = 0.25
+
     public var hudAnchor: HUDAnchor = .notch
     public var launchAtLogin: Bool = false
     /// `nil` follows the system default input device, including when it changes.
@@ -153,6 +163,8 @@ public struct Settings: Sendable, Codable, Equatable {
         voiceCommandsEnabled = value(.voiceCommandsEnabled, defaults.voiceCommandsEnabled)
         voiceCommandPrefix = value(.voiceCommandPrefix, defaults.voiceCommandPrefix)
         soundEffects = value(.soundEffects, defaults.soundEffects)
+        duckOtherAudio = value(.duckOtherAudio, defaults.duckOtherAudio)
+        duckLevel = value(.duckLevel, defaults.duckLevel)
         hudAnchor = value(.hudAnchor, defaults.hudAnchor)
         launchAtLogin = value(.launchAtLogin, defaults.launchAtLogin)
         preferredInputDeviceUID = value(.preferredInputDeviceUID, defaults.preferredInputDeviceUID)
@@ -180,6 +192,8 @@ public struct Settings: Sendable, Codable, Equatable {
         try container.encode(voiceCommandsEnabled, forKey: .voiceCommandsEnabled)
         try container.encode(voiceCommandPrefix, forKey: .voiceCommandPrefix)
         try container.encode(soundEffects, forKey: .soundEffects)
+        try container.encode(duckOtherAudio, forKey: .duckOtherAudio)
+        try container.encode(duckLevel, forKey: .duckLevel)
         try container.encode(hudAnchor, forKey: .hudAnchor)
         try container.encode(launchAtLogin, forKey: .launchAtLogin)
         try container.encodeIfPresent(preferredInputDeviceUID, forKey: .preferredInputDeviceUID)
@@ -195,6 +209,7 @@ public struct Settings: Sendable, Codable, Equatable {
         case historyEnabled, historyRetentionDays, hasCompletedOnboarding
         case voiceCommandsEnabled, voiceCommandPrefix
         case soundEffects, hudAnchor, launchAtLogin, preferredInputDeviceUID
+        case duckOtherAudio, duckLevel
     }
 
     public var doubleTapWindow: Duration { .milliseconds(doubleTapWindowMilliseconds) }

@@ -65,6 +65,30 @@ struct GeneralSettingsTab: View {
                 SettingRow("Play sounds", help: "A quiet cue when dictation starts and finishes.") {
                     Toggle("", isOn: binding(\.soundEffects)).labelsHidden()
                 }
+                Divider()
+                SettingRow(
+                    "Lower other audio",
+                    help: "Fades whatever else is playing while you speak, and puts it back afterwards."
+                ) {
+                    Toggle("", isOn: binding(\.duckOtherAudio)).labelsHidden()
+                }
+
+                if services.settings.duckOtherAudio {
+                    Divider()
+                    SettingRow(
+                        "How far",
+                        help: "Down to \(Int(services.settings.duckLevel * 100))% of its volume. Nudge it to zero to silence other audio entirely."
+                    ) {
+                        Slider(
+                            value: Binding(
+                                get: { services.settings.duckLevel },
+                                set: { v in services.update { $0.duckLevel = v } }
+                            ),
+                            in: 0...0.8, step: 0.05
+                        )
+                        .frame(width: 160)
+                    }
+                }
             }
 
             Card {
