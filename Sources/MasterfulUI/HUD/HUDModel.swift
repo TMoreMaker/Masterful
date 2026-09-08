@@ -60,15 +60,35 @@ public final class HUDModel {
     /// drift away from what ships, and it is reproducible from a clean checkout.
     /// This is the one seam that needs opening to do that — `isPresented` is
     /// otherwise owned by `HUDController`, which is exactly where it belongs.
-    public static func posed(phase: DictationPhase, levels: [Float] = []) -> HUDModel {
+    public static func posed(
+        phase: DictationPhase,
+        levels: [Float] = [],
+        coalescence: Double? = nil,
+        clock: TimeInterval? = nil
+    ) -> HUDModel {
         let model = HUDModel()
         model.phase = phase
         model.isPresented = true
+        model.posedCoalescence = coalescence
+        model.posedClock = clock
         if !levels.isEmpty {
             model.levels = Array(levels.suffix(Token.Size.levelHistory))
         }
         return model
     }
+
+    /// The activity indicator's morph, held still.
+    ///
+    /// `VoiceIndicator` normally gets this from the phase and lets SwiftUI's
+    /// spring carry it from 0 to 1, which cannot be photographed: a renderer
+    /// asks for one frame and the spring has not run. Posing it here — beside
+    /// `isPresented`, the seam that already exists for exactly this — lets the
+    /// motion strip walk the real spring's own values through the real view.
+    /// `nil` in the running app, always.
+    public internal(set) var posedCoalescence: Double?
+
+    /// The instant to freeze the indicator's own clock at. `nil` runs live.
+    public internal(set) var posedClock: TimeInterval?
 
     public func push(level: AudioLevel) {
         levels.removeFirst()

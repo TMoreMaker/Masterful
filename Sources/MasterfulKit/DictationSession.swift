@@ -64,6 +64,19 @@ public enum DictationPhase: Sendable, Equatable {
         if case .listening = self { return true }
         return false
     }
+
+    /// True once the speaking is over and the machine has the problem:
+    /// transcribing, refining, or putting the text where it goes.
+    ///
+    /// One flag for all three because that is how it reads from outside — your
+    /// words are being written down — and because they can pass in well under a
+    /// second, which is not long enough to be told three separate things.
+    public var isThinking: Bool {
+        switch self {
+        case .transcribing, .refining, .inserting: true
+        default: false
+        }
+    }
 }
 
 // MARK: - Intents

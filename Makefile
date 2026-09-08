@@ -67,7 +67,14 @@ shots:
 		-delay 190 05-delivered-clipboard.png -delay 190 06-blocked.png \
 		-delay 170 07-failed.png -delay 190 08-failed-permission.png \
 		-resize 700x -layers OptimizeTransparency -colors 128 island-states.gif && \
-	echo "   island-states.gif" 
+	echo "   island-states.gif"; \
+	cd $(DIST_DIR)/shots && magick -loop 0 -delay 3.33 motion/frame-*.png \
+		-crop 800x100+160+0 +repage \
+		-resize 640x -layers OptimizeTransparency -colors 96 island-morph.gif && \
+	magick -loop 0 -delay 3.33 motion/frame-*.png \
+		-crop 200x76+700+0 +repage \
+		-resize 500% -layers OptimizeTransparency -colors 96 island-morph-closeup.gif && \
+	echo "   island-morph.gif, island-morph-closeup.gif" 
 
 ## Render what a VoiceOver user hears into docs/audio, through the same system
 ## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,

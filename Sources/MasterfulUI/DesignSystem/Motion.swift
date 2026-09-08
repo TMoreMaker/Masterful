@@ -23,7 +23,34 @@ public enum Motion {
     public static let island = Animation.snappy(duration: 0.46, extraBounce: 0.20)
 
     /// Changing contents inside a stable shape: listening → thinking → done.
-    public static let morph = Animation.snappy(duration: 0.34, extraBounce: 0.10)
+    ///
+    /// Held as a `Spring` rather than only as an `Animation` because the
+    /// waveform→ball coalescence is a curve someone has to be able to *look
+    /// at*: `Spring.value(target:time:)` lets the specimen renderer sample this
+    /// exact spring frame by frame, so the documented morph is the shipping
+    /// morph rather than a hand-drawn approximation of it. Same reasoning as
+    /// rendering the island's states out of `HUDView` instead of screenshotting
+    /// them.
+    ///
+    /// `bounce: 0.25` is `.snappy(extraBounce: 0.10)` written out — `.snappy`
+    /// is bounce 0.15 plus whatever extra it is given.
+    public static let morphSpring = Spring(duration: 0.34, bounce: 0.25)
+    public static let morph = Animation.spring(morphSpring)
+
+    /// The waveform closing into the ball, and the one place the island is
+    /// deliberately slower than everything else around it.
+    ///
+    /// Under `morph` the fusion took three frames: correct as a state change,
+    /// useless as a *depiction*. The whole claim of that move is that four
+    /// things become one thing, and at 0.34s the eye gets the before and the
+    /// after and none of the argument in between. Half a second is long enough
+    /// to read the join and still short enough that nobody is waiting on it.
+    ///
+    /// Barely any bounce, unlike the island's own springs: the shape is meant
+    /// to arrive like liquid settling, and a ball that overshoots and springs
+    /// back is a rubber one.
+    public static let coalesceSpring = Spring(duration: 0.52, bounce: 0.08)
+    public static let coalesce = Animation.spring(coalesceSpring)
 
     /// Leaving. Fast and unspringy — a bouncy exit reads as indecision.
     public static let exit = Animation.smooth(duration: 0.22)

@@ -112,21 +112,27 @@ public struct HUDView: View {
 
     private var leadingFlank: CGFloat { Token.Island.flankMinWidth }
 
-    /// The trailing flank is sized to whatever it has to hold: a waveform, three
-    /// dots, or a readout whose width is measured rather than guessed. A glyph's
-    /// worth of slack here is not a rounding error — the bar is symmetric about
-    /// the notch, so anything mis-sized on the right visibly drags the whole
-    /// island off the camera's centre line.
+    /// The trailing flank is sized to whatever it has to hold: the activity
+    /// indicator, or a readout whose width is measured rather than guessed. A
+    /// glyph's worth of slack here is not a rounding error — the bar is
+    /// symmetric about the notch, so anything mis-sized on the right visibly
+    /// drags the whole island off the camera's centre line.
     private var trailingFlank: CGFloat {
         switch model.phase {
-        case .listening:
+        case .listening, .transcribing, .refining, .inserting:
+            // One width across the whole of "we are working on it". The
+            // indicator keeps the same 26pt box on both sides of the morph, so
+            // holding the flank still means the island does not flinch at the
+            // moment the key is released — the shape stays put and the thing
+            // inside it changes. It used to narrow here, which read as a
+            // second, smaller indicator replacing the first.
             return 52
         case .delivered(let delivery):
             return max(
                 Token.Island.flankMinWidth,
                 Self.width(of: compactReadout(delivery)) + Token.Island.flankPadding * 2
             )
-        case .idle, .transcribing, .refining, .inserting, .failed, .blocked:
+        case .idle, .failed, .blocked:
             return Token.Island.flankMinWidth
         }
     }
@@ -191,7 +197,19 @@ public struct HUDView: View {
                 .transition(.islandContent)
 
         case .transcribing, .refining, .inserting:
-            glyph("waveform")
+            // Not `waveform`. The glyph opposite a thinking indicator has to
+            // name the *output*, because the input is over — a second piece of
+            // audio imagery here was the other half of why the island looked
+            // like it was still listening. A pencil is also the most legible
+            // silhouette at 12pt of anything that means this: one diagonal
+            // stroke, which is nothing like the mic's vertical capsule.
+            //
+            // One glyph for all three phases, not three. Transcribing,
+            // refining and inserting are the same promise from where the user
+            // sits — your words are being written down — and they can pass in
+            // under a second, so distinguishing them would only make the
+            // island flicker through symbols nobody has time to read.
+            glyph("pencil")
 
         case .delivered:
             glyph("checkmark")
@@ -205,12 +223,28 @@ public struct HUDView: View {
     @ViewBuilder
     private var trailingActivity: some View {
         switch model.phase {
-        case .listening:
-            WaveformView(samples: model.levels, tint: accent)
-                .frame(width: 26, height: waveformHeight)
-
-        case .transcribing, .refining, .inserting:
-            ThinkingIndicator(tint: accent)
+        // One case, not two, and that is the whole design. Listening and
+        // thinking are the same view at two values of `coalescence`, so
+        // SwiftUI animates the number rather than swapping the view — the bars
+        // physically converge and fuse into the ball instead of one indicator
+        // fading out under another. Splitting this into two branches would give
+        // them separate identities and silently restore the cross-dissolve.
+        case .listening, .transcribing, .refining, .inserting:
+            VoiceIndicator(
+                coalescence: model.posedCoalescence ?? (model.phase.isThinking ? 1 : 0),
+                samples: model.levels,
+                voice: Palette.live,
+                thought: Palette.thinking,
+                clock: model.posedClock
+            )
+            .frame(width: 26, height: waveformHeight)
+            // Its own spring, overriding the outer `morph` for this subtree
+            // only. The glyph beside it still swaps at the island's usual pace;
+            // the fusion is the one thing that has to be watchable.
+            .animation(
+                Motion.honouringPreferences(Motion.coalesce),
+                value: model.phase.isThinking
+            )
 
         case .delivered(let delivery):
             // The one number worth reading after the fact, and the only text the
@@ -236,8 +270,9 @@ public struct HUDView: View {
         return "\(delivery.wordCount) \(delivery.wordCount == 1 ? "word" : "words")"
     }
 
-    /// Proportional to the bar so the waveform never crowds the black. Capped
+    /// Proportional to the bar so the indicator never crowds the black. Capped
     /// because a notch on a 16-inch display is taller than the waveform wants.
+    /// It is also what sizes the ball, which is why the cap matters twice.
     private var waveformHeight: CGFloat {
         min(16, metrics.compactHeight * 0.46)
     }
