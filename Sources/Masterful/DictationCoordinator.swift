@@ -39,6 +39,9 @@ public final class DictationCoordinator {
     public var onInputLevel: ((AudioLevel) -> Void)?
 
     private var session = DictationSession()
+    /// Backs the budget in `docs/latency.md`. Every stage below opens and closes
+    /// one interval here; nothing else in this file knows what a signpost is.
+    private let trace = LatencyTrace()
 
     private let settingsStore: SettingsStore
     private let historyStore: HistoryStore
@@ -210,11 +213,30 @@ public final class DictationCoordinator {
             apply(.blocked(.secureInputActive))
             return
         }
-        if case .beginListening = intent { stopMicTest() }
+        if case .beginListening = intent {
+            stopMicTest()
+            // The hotkey edge. Both intervals are measured from here rather than
+            // from the effects they belong to, because what the user is waiting
+            // on is the key going down, not our bookkeeping after it.
+            trace.begin(.hudPresent)
+            trace.begin(.captureStart)
+        }
         apply(intent)
     }
 
     private func apply(_ intent: DictationIntent) {
+        // Close whatever this intent completes before the reducer's effects open
+        // the next stage, so the intervals nest the way the budget describes.
+        switch intent {
+        case .finalTranscript: trace.end(.transcribeFinalize)
+        case .refined: trace.end(.refine)
+        case .delivered:
+            trace.end(.insert)
+            trace.end(.sessionTotal)
+        case .cancel, .failed, .blocked: trace.endAll()
+        default: break
+        }
+
         let previous = session.phase
         let effects = session.apply(intent)
         phase = session.phase
@@ -253,6 +275,7 @@ public final class DictationCoordinator {
         switch effect {
         case .presentHUD:
             hud.present()
+            trace.end(.hudPresent)
 
         case .dismissHUD(let delay):
             hud.dismiss(after: delay) { [weak self] in
@@ -271,6 +294,10 @@ public final class DictationCoordinator {
             levelPumpTask?.cancel()
 
         case .finalizeTranscription:
+            // Key release. `session.total` is the only figure the user feels;
+            // the rest exist to say which part of it went wrong.
+            trace.begin(.transcribeFinalize)
+            trace.begin(.sessionTotal)
             Task { [transcriber] in
                 do {
                     try await transcriber.finish()
@@ -287,9 +314,11 @@ public final class DictationCoordinator {
 
         case .refine(let text):
             lastRawTranscript = text
+            trace.begin(.refine)
             refine(text)
 
         case .insert(let text):
+            trace.begin(.insert)
             insert(text)
 
         case .feedback(let feedback):
@@ -330,8 +359,15 @@ public final class DictationCoordinator {
                 let updates = try await self.transcriber.beginSession(vocabulary: vocabulary)
                 let streams = try self.capture.start()
 
-                self.audioPumpTask = Task.detached { [transcriber = self.transcriber] in
+                self.audioPumpTask = Task.detached { [weak self, transcriber = self.transcriber] in
+                    var isFirstBuffer = true
                     for await chunk in streams.audio {
+                        if isFirstBuffer {
+                            isFirstBuffer = false
+                            // The moment the microphone is genuinely live. One
+                            // hop to the main actor, once per dictation.
+                            await MainActor.run { self?.trace.end(.captureStart) }
+                        }
                         await transcriber.append(chunk)
                     }
                 }

@@ -15,9 +15,10 @@ public enum Log {
     public static let hud = Logger(subsystem: subsystem, category: "hud")
     public static let session = Logger(subsystem: subsystem, category: "session")
 
-    /// Signposts back the latency budget in `docs/latency.md`. Instruments can
-    /// read these directly, so the budget is measured rather than asserted.
-    public static let signposter = OSSignposter(
-        logger: Logger(subsystem: subsystem, category: "latency")
-    )
+    /// Backs the latency budget in `docs/latency.md`. `LatencyTrace` opens one
+    /// signpost interval per stage, which Instruments reads directly, and logs
+    /// to the same category when a stage overruns — so the budget is measured
+    /// rather than asserted, and a breach shows up in a plain log export too.
+    public static let latency = Logger(subsystem: subsystem, category: "latency")
+    public static let signposter = OSSignposter(logger: latency)
 }

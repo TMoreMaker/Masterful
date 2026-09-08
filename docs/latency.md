@@ -2,19 +2,34 @@
 
 Dictation is judged almost entirely on the gap between letting go of the key and
 seeing text. Everything else is negotiable; this is not. The budget below is a
-contract, not an aspiration — each stage emits an `OSSignposter` interval under
+contract, not an aspiration — each stage opens an `OSSignposter` interval under
 `com.tlotliso.masterful:latency`, so it is measured rather than asserted.
 
-| Stage | Budget | Signpost |
-|---|---|---|
-| Hotkey edge → HUD visible | 50 ms | `hud.present` |
-| Hotkey edge → first audio buffer | 80 ms | `capture.start` |
-| Key release → final transcript (5 s utterance) | 400 ms | `transcribe.finalize` |
-| Final transcript → refined text (rules) | 5 ms | `refine` |
-| Final transcript → refined text (on-device) | 1200 ms | `refine` |
-| Refined text → characters in the field | 100 ms | `insert` |
-| **Key release → text on screen** (rules) | **< 1 s** | `session.total` |
-| **Key release → text on screen** (on-device) | **< 1.8 s** | `session.total` |
+The numbers in the table are not written here and separately in the code: they
+are `LatencyTrace.Stage.budget`, and this table is generated from the same six
+values the app enforces. An earlier version of this page named these six
+intervals before any of them existed, which is exactly the failure the
+arrangement now prevents.
+
+Open Instruments, record with the **os_signpost** instrument, and filter the
+subsystem to `com.tlotliso.masterful` to see them. A stage that overruns also
+writes a line to the `latency` category, so a breach is visible in a plain
+`log show` export when Instruments is not to hand:
+
+```bash
+log show --predicate 'subsystem == "com.tlotliso.masterful" AND category == "latency"' --last 30m
+```
+
+| Stage | Budget | Signpost | `LatencyTrace.Stage` |
+|---|---|---|---|
+| Hotkey edge → HUD visible | 50 ms | `hud.present` | `.hudPresent` |
+| Hotkey edge → first audio buffer | 80 ms | `capture.start` | `.captureStart` |
+| Key release → final transcript (5 s utterance) | 400 ms | `transcribe.finalize` | `.transcribeFinalize` |
+| Final transcript → refined text (rules) | 5 ms | `refine` | `.refine` |
+| Final transcript → refined text (on-device) | 1200 ms | `refine` | `.refine` |
+| Refined text → characters in the field | 100 ms | `insert` | `.insert` |
+| **Key release → text on screen** (rules) | **< 1 s** | `session.total` | `.sessionTotal` |
+| **Key release → text on screen** (on-device) | **< 1.8 s** | `session.total` | `.sessionTotal` |
 
 ## Where the budget is spent, and how it is defended
 
@@ -65,6 +80,15 @@ that was supposed to cap them, which is the only reason it was caught.
 The race is now resolved on a continuation claimed by whichever side finishes
 first, and `RefinementPipelineTests` asserts on the clock rather than only on the
 returned text — the original test passed happily against the broken version.
+
+## What an interval means when a dictation goes wrong
+
+A cancelled or failed session closes every interval still open rather than
+leaving it dangling. An unterminated signpost is worse than a short one: it sits
+open in the trace for ever and makes every later reading of that stage suspect.
+Those durations are real up to the point it went wrong. A restart — the user
+pressing the key again mid-utterance, which is supported — closes the previous
+interval silently, because it did not overrun, it was abandoned.
 
 ## Deliberate non-goals
 
