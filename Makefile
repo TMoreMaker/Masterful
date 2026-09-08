@@ -17,7 +17,7 @@ CONTENTS    := $(APP_BUNDLE)/Contents
 #   make app SIGN_ID="Developer ID Application: ..."
 SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk -F'"' '/Apple Development|Developer ID Application/ {print $$2; exit}')
 
-.PHONY: all build app sign install run stop test clean reset-permissions icon shots preview probe probe-mouse eval record eval-asr eval-asr-list
+.PHONY: all build app sign install run stop test clean reset-permissions icon shots voice preview probe probe-mouse eval record eval-asr eval-asr-list
 
 all: app
 
@@ -68,6 +68,18 @@ shots:
 		-delay 170 07-failed.png -delay 190 08-failed-permission.png \
 		-resize 700x -layers OptimizeTransparency -colors 128 island-states.gif && \
 	echo "   island-states.gif" 
+
+## Render what a VoiceOver user hears into docs/audio, through the same system
+## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,
+## not from a script typed here, so a recording cannot drift from the app.
+## Override the voice with VOICE="Samantha".
+VOICE ?= Daniel
+voice: shots
+	@mkdir -p docs/audio
+	@while IFS=$$'\t' read -r name text; do \
+		say -v "$(VOICE)" -o "docs/audio/$$name.m4a" --data-format=aac "$$text" && \
+		echo "   docs/audio/$$name.m4a  —  $$text"; \
+	done < $(DIST_DIR)/shots/announcements.tsv
 
 ## Cycle the HUD through every state with the microphone and hotkeys inactive.
 ## Turn VoiceOver on first (Cmd-F5) to hear the announcements as well as see

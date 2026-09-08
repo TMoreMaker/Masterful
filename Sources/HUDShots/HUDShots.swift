@@ -43,7 +43,10 @@ enum HUDShots {
         for shot in shots {
             render(shot, metrics: metrics, into: output)
         }
+        MotionStrip.render(metrics: metrics, into: output)
         print("\n\(shots.count) images → \(output.path)")
+
+        writeAnnouncements(into: output)
     }
 
     // MARK: - The states worth documenting
@@ -75,6 +78,34 @@ enum HUDShots {
         .init(name: "08-failed-permission", phase: .failed(.microphonePermissionDenied),
               caption: "Microphone permission missing"),
     ]
+
+    // MARK: - What each state says
+
+    /// Writes what a VoiceOver user hears, one state per line.
+    ///
+    /// Read from `HUDAnnouncer` rather than typed out here, for the same reason
+    /// the images come from `HUDView`: the moment the recording and the app
+    /// disagree, the recording is a lie about the product. `make voice` renders
+    /// these through the system speech engine.
+    ///
+    /// States that say nothing are absent by design, not by omission — the
+    /// island announces starting and the outcome, and stays quiet through
+    /// transcribing, refining and inserting.
+    static func writeAnnouncements(into directory: URL) {
+        var lines: [String] = []
+        for shot in shots {
+            guard let spoken = HUDAnnouncer.spokenText(for: shot.phase) else {
+                print("  · \(shot.name) — silent, by design")
+                continue
+            }
+            lines.append("\(shot.name)\t\(spoken)")
+            print("  ♪ \(shot.name) — “\(spoken)”")
+        }
+
+        let url = directory.appendingPathComponent("announcements.tsv")
+        try? (lines.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
+        print("\n\(lines.count) announcements → \(url.path)")
+    }
 
     // MARK: - Rendering
 
