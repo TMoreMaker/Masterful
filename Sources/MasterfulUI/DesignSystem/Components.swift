@@ -11,7 +11,19 @@ public enum AppSurface {
     public static let background = Color(nsColor: .windowBackgroundColor)
     public static let card = Color(nsColor: .controlBackgroundColor)
     public static let separator = Color(nsColor: .separatorColor)
-    public static let accent = Color(red: 0.16, green: 0.72, blue: 0.55)
+
+    /// The system accent — blue out of the box, and whatever the user chose in
+    /// System Settings otherwise.
+    ///
+    /// This app has no brand worth defending against the user's own preference:
+    /// it is a menu-bar utility that spends its life inside other people's
+    /// windows. More concretely, SwiftUI already tints every stock control here
+    /// — toggles, radio groups, the default button — with this exact colour, so
+    /// anything hand-picked put two accents in one window and lost.
+    ///
+    /// The teal it replaces measured 2.14:1 on a light window background, which
+    /// is what a colour chosen once in Dark Mode and then frozen looks like.
+    public static let accent = Color.accentColor
 }
 
 /// A grouped container. The workhorse of both settings and onboarding.
@@ -48,10 +60,10 @@ public struct SectionHeader: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: Token.Space.xxs) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(Typeface.sectionTitle)
             if let subtitle {
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(Typeface.secondary)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -75,10 +87,10 @@ public struct SettingRow<Control: View>: View {
     public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Token.Space.lg) {
             VStack(alignment: .leading, spacing: Token.Space.hairline) {
-                Text(title).font(.system(size: 12))
+                Text(title).font(Typeface.rowTitle)
                 if let help {
                     Text(help)
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -102,7 +114,7 @@ public struct KeyCapView: View {
 
     public var body: some View {
         Text(shortcut.displayString)
-            .font(.system(size: isEmphasised ? 15 : 12, weight: .medium, design: .rounded))
+            .font(isEmphasised ? Typeface.keycapLarge : Typeface.keycap)
             .padding(.horizontal, isEmphasised ? Token.Space.md : Token.Space.sm)
             .padding(.vertical, isEmphasised ? Token.Space.sm : Token.Space.xxs)
             .background(
@@ -181,9 +193,9 @@ public struct RequirementRow: View {
                 .padding(.top, 5)
 
             VStack(alignment: .leading, spacing: Token.Space.hairline) {
-                Text(title).font(.system(size: 12, weight: .medium))
+                Text(title).font(Typeface.rowTitleEmphasised)
                 Text(detail)
-                    .font(.system(size: 11))
+                    .font(Typeface.secondary)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -196,6 +208,90 @@ public struct RequirementRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// An inline notice — a tinted symbol carrying the state, and text that does not.
+///
+/// The colour lives on the symbol deliberately. macOS's status colours are *fill*
+/// colours: `systemOrange` measures 2.31:1 as text on a white card, well under the
+/// 4.5:1 small text needs, and Apple intends them for filled shapes, dots and
+/// glyphs rather than for prose. A tinted glyph reads the state at a glance and
+/// leaves the words at full label contrast. It is the pattern the Globe-key
+/// conflict notices already use; this makes it the easy one to reach for.
+///
+/// The symbol also does something colour never can: it is announced. These
+/// sentences previously reached VoiceOver with no indication they were warnings
+/// at all, because the only thing marking them as such was their colour.
+public struct InlineNotice: View {
+
+    public enum Level {
+        /// Something is wrong, but the app still works.
+        case warning
+        /// Something is stopping the feature from working at all.
+        case problem
+
+        var symbol: String {
+            switch self {
+            case .warning: "exclamationmark.triangle.fill"
+            case .problem: "exclamationmark.octagon.fill"
+            }
+        }
+
+        var tint: Color {
+            switch self {
+            case .warning: Palette.warning
+            case .problem: Palette.danger
+            }
+        }
+
+        /// VoiceOver hears the level that sighted users read from the glyph.
+        var spokenPrefix: String {
+            switch self {
+            case .warning: "Warning"
+            case .problem: "Problem"
+            }
+        }
+    }
+
+    /// How loudly the notice is set. `.note` is a third-level aside inside
+    /// another row; `.standard` stands on its own.
+    public enum Prominence {
+        case note, standard
+
+        var font: Font {
+            switch self {
+            case .note: Typeface.caption
+            case .standard: Typeface.secondary
+            }
+        }
+    }
+
+    private let level: Level
+    private let message: String
+    private let prominence: Prominence
+
+    public init(_ level: Level, _ message: String, prominence: Prominence = .standard) {
+        self.level = level
+        self.message = message
+        self.prominence = prominence
+    }
+
+    public var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Token.Space.xs) {
+            Image(systemName: level.symbol)
+                .foregroundStyle(level.tint)
+            // No tint, and no `.secondary` either: a notice should be at least as
+            // readable as the text it sits under. The glyph is what marks it out,
+            // which is the whole point of the arrangement.
+            Text(message)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        // Set on the stack so the glyph and the words share a size and a baseline.
+        .font(prominence.font)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(level.spokenPrefix). \(message)")
     }
 }
 
@@ -214,15 +310,14 @@ public struct StatBlock: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: Token.Space.xxs) {
             Text(value)
-                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                .monospacedDigit()
+                .font(Typeface.statValue)
                 .contentTransition(.numericText())
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(Typeface.secondaryEmphasised)
                 .foregroundStyle(.secondary)
             if let caption {
                 Text(caption)
-                    .font(.system(size: 10))
+                    .font(Typeface.caption)
                     .foregroundStyle(.tertiary)
             }
         }

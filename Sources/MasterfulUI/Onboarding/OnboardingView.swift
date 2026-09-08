@@ -53,9 +53,9 @@ public struct OnboardingView: View {
             VStack(alignment: .leading, spacing: Token.Space.lg) {
                 VStack(alignment: .leading, spacing: Token.Space.sm) {
                     Text(step.title)
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(Typeface.screenTitle)
                     Text(step.subtitle)
-                        .font(.system(size: 13))
+                        .font(Typeface.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -136,13 +136,13 @@ public struct OnboardingView: View {
             ForEach(Array(welcomePoints.enumerated()), id: \.offset) { _, point in
                 HStack(alignment: .top, spacing: Token.Space.md) {
                     Image(systemName: point.symbol)
-                        .font(.system(size: 14))
+                        .font(Typeface.listSymbol)
                         .foregroundStyle(AppSurface.accent)
                         .frame(width: 22)
                     VStack(alignment: .leading, spacing: Token.Space.hairline) {
-                        Text(point.title).font(.system(size: 12, weight: .medium))
+                        Text(point.title).font(Typeface.rowTitleEmphasised)
                         Text(point.detail)
-                            .font(.system(size: 11))
+                            .font(Typeface.secondary)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -190,7 +190,7 @@ public struct OnboardingView: View {
                                 .fill(AppSurface.background)
                         )
                     Text("Masterful follows your system input device, and keeps up if you switch mid-sentence.")
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                 }
                 .onAppear { services.onStartMicTest() }
@@ -228,7 +228,7 @@ public struct OnboardingView: View {
                 your chosen shortcut and ignores everything else — and it refuses to \
                 listen at all while a password field has focus.
                 """)
-                .font(.system(size: 11))
+                .font(Typeface.secondary)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
@@ -302,15 +302,13 @@ public struct OnboardingView: View {
                 Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
                     .foregroundStyle(isSelected ? AppSurface.accent : Color.secondary)
                 VStack(alignment: .leading, spacing: Token.Space.hairline) {
-                    Text(mode.displayName).font(.system(size: 12, weight: .medium))
+                    Text(mode.displayName).font(Typeface.rowTitleEmphasised)
                     Text(cleanupDescription(mode))
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let note {
-                        Text(note)
-                            .font(.system(size: 10))
-                            .foregroundStyle(Palette.warning)
+                        InlineNotice(.warning, note, prominence: .note)
                     }
                 }
                 Spacer()
@@ -334,16 +332,16 @@ public struct OnboardingView: View {
             Card {
                 HStack(spacing: Token.Space.sm) {
                     Text("Hold")
-                        .font(.system(size: 12))
+                        .font(Typeface.rowTitle)
                         .foregroundStyle(.secondary)
                     KeyCapView(shortcut: services.settings.primaryTrigger, isEmphasised: true)
                     Text("and say anything")
-                        .font(.system(size: 12))
+                        .font(Typeface.rowTitle)
                         .foregroundStyle(.secondary)
                 }
 
                 TextEditor(text: $practiceText)
-                    .font(.system(size: 13))
+                    .font(Typeface.body)
                     .scrollContentBackground(.hidden)
                     .padding(Token.Space.sm)
                     .frame(height: 120)
@@ -361,7 +359,7 @@ public struct OnboardingView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(Palette.success)
                         Text("That's it. It works the same way in every other app.")
-                            .font(.system(size: 11))
+                            .font(Typeface.secondary)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -369,9 +367,7 @@ public struct OnboardingView: View {
             .animation(Motion.honouringPreferences(Motion.content), value: practiceWordCount >= 2)
 
             if !services.permissions.allGranted {
-                Text("Grant the permissions above first — dictation is not active yet.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.warning)
+                InlineNotice(.warning, "Grant the permissions above first — dictation is not active yet.")
             }
         }
     }
@@ -385,13 +381,13 @@ public struct OnboardingView: View {
             Card {
                 HStack(spacing: Token.Space.md) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 18))
+                        .font(Typeface.featureSymbol)
                         .foregroundStyle(AppSurface.accent)
                     VStack(alignment: .leading, spacing: Token.Space.hairline) {
                         Text("Hold \(services.settings.triggersDisplayString) anywhere")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(Typeface.rowTitleEmphasised)
                         Text("Settings, history and stats live in the menu bar icon.")
-                            .font(.system(size: 11))
+                            .font(Typeface.secondary)
                             .foregroundStyle(.secondary)
                     }
                 }

@@ -26,7 +26,7 @@ struct VocabularySettingsTab: View {
 
                 if rejectedDuplicate {
                     Text("Already in your vocabulary.")
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -34,13 +34,13 @@ struct VocabularySettingsTab: View {
             Card {
                 if terms.isEmpty {
                     Text("Nothing yet. Add the words the recogniser keeps getting wrong.")
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     ForEach(terms, id: \.persistentModelID) { term in
                         HStack {
-                            Text(term.term).font(.system(size: 12))
+                            Text(term.term).font(Typeface.rowTitle)
                             Spacer()
                             Button {
                                 services.historyStore.removeVocabulary(term)

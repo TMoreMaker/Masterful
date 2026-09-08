@@ -65,13 +65,13 @@ struct CleanupSettingsTab: View {
                 Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
                     .foregroundStyle(isSelected ? AppSurface.accent : Color.secondary)
                 VStack(alignment: .leading, spacing: Token.Space.hairline) {
-                    Text(mode.displayName).font(.system(size: 12, weight: .medium))
+                    Text(mode.displayName).font(Typeface.rowTitleEmphasised)
                     Text(description(for: mode))
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     if let note {
-                        Text(note).font(.system(size: 10)).foregroundStyle(Palette.warning)
+                        InlineNotice(.warning, note, prominence: .note)
                     }
                 }
                 Spacer()
@@ -123,7 +123,7 @@ struct CleanupSettingsTab: View {
                 case .idle:
                     if Keychain.has(account: services.settings.remoteProvider.keychainAccount) {
                         StatusDot(.good)
-                        Text("A key is stored.").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Text("A key is stored.").font(Typeface.secondary).foregroundStyle(.secondary)
                         Spacer()
                         Button("Remove") {
                             Keychain.remove(account: services.settings.remoteProvider.keychainAccount)
@@ -132,17 +132,17 @@ struct CleanupSettingsTab: View {
                         .controlSize(.small)
                     } else {
                         StatusDot(.bad)
-                        Text("No key stored.").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Text("No key stored.").font(Typeface.secondary).foregroundStyle(.secondary)
                     }
                 case .checking:
                     ProgressView().controlSize(.small)
-                    Text("Checking…").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text("Checking…").font(Typeface.secondary).foregroundStyle(.secondary)
                 case .valid:
                     StatusDot(.good)
-                    Text("Key works.").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text("Key works.").font(Typeface.secondary).foregroundStyle(.secondary)
                 case .invalid:
                     StatusDot(.bad)
-                    Text("That key didn't work.").font(.system(size: 11)).foregroundStyle(Palette.danger)
+                    Text("That key didn't work.").font(Typeface.secondary).foregroundStyle(.secondary)
                 }
             }
 
@@ -150,7 +150,7 @@ struct CleanupSettingsTab: View {
                 "Get a \(services.settings.remoteProvider.displayName) key",
                 destination: services.settings.remoteProvider.consoleURL
             )
-            .font(.system(size: 11))
+            .font(Typeface.secondary)
         }
     }
 
@@ -180,7 +180,7 @@ struct CleanupSettingsTab: View {
             ForEach(sortedProfiles, id: \.bundleID) { entry in
                 HStack {
                     Text(entry.name)
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .lineLimit(1)
                     Spacer()
                     Picker("", selection: Binding(

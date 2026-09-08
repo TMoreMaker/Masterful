@@ -133,6 +133,11 @@ public struct HUDView: View {
 
     /// AppKit's own text measurement, in the font the label actually uses.
     /// Cheap, exact, and evaluated only when the phase changes.
+    ///
+    /// `readoutFont` below must stay the `NSFont` twin of `Typeface.islandReadout`.
+    /// Keeping them in step by hand is only tolerable because the island's type is
+    /// fixed by design — a scaling font could not be measured ahead of layout at
+    /// all, which is the same reason the island opts out of the system text size.
     private static func width(of string: String) -> CGFloat {
         (string as NSString)
             .size(withAttributes: [.font: readoutFont])
@@ -239,7 +244,7 @@ public struct HUDView: View {
 
     private func glyph(_ name: String) -> some View {
         Image(systemName: name)
-            .font(.system(size: 12, weight: .semibold))
+            .font(Typeface.islandGlyph)
             .foregroundStyle(accent)
     }
 
@@ -281,7 +286,7 @@ public struct HUDView: View {
             .frame(width: Token.Island.tile, height: Token.Island.tile)
             .overlay {
                 Image(systemName: expandedSymbol)
-                    .font(.system(size: 19, weight: .medium))
+                    .font(Typeface.islandSymbol)
                     .foregroundStyle(accent)
             }
     }

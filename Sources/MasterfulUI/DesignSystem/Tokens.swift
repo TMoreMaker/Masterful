@@ -76,18 +76,28 @@ public enum Token {
 
 /// Semantic colours.
 ///
-/// The HUD is deliberately dark in both appearances rather than adopting the
-/// system one. It floats over arbitrary application content — a white document,
-/// a dark editor — and a surface that changes with the system theme would be
-/// invisible against half of them. A consistent dark chip is always legible and
-/// always reads as system chrome rather than as part of the app underneath.
+/// Every value here is a macOS system colour, and that is the whole point: the
+/// system's palette is tuned per appearance, adjusted under Increase Contrast,
+/// and updated when Apple retunes it. Hand-picked hexes are none of those things.
+/// The two exceptions below are exceptions because a system colour cannot express
+/// what they mean.
 ///
-/// **Recording is white; outcomes carry colour.** Listening is the state you see
-/// every single time you use the app, often for several seconds, so it stays
-/// neutral and refuses to compete with the work behind it — white in the notch
-/// reads as the system, a saturated tint reads as an app announcing itself. The
-/// other states are brief and rare, and there colour is doing real work: it says
-/// how the dictation ended before you have finished reading the words.
+/// **These serve both the island and the app's ordinary windows.** That is new.
+/// The old palette was hand-tuned against pure black and then also used in
+/// settings and onboarding, where a light window made `success` a 2.2:1 smear.
+/// A dynamic colour resolves against whatever it is drawn into, so one name is
+/// now correct in both places instead of correct in one.
+///
+/// **The island's appearance is pinned to dark** (`HUDPanel`), which is what lets
+/// these resolve correctly on it. Without that pin `labelColor` would resolve to
+/// near-black in Light Mode and the island's text would vanish into it.
+///
+/// **Recording is not a colour.** Listening is the state you see every time you
+/// use the app, often for seconds at a stretch, so it stays plain content —
+/// `labelColor`, the same as any other text — and refuses to compete with the
+/// work behind it. The states after it are brief and rare, and there colour is
+/// doing real work: it says how the dictation ended before you have finished
+/// reading the words.
 ///
 /// **Nothing casts a shadow.** A shadow is a claim to be floating above the
 /// screen, and the island is not floating — it is cut into the top of the
@@ -95,40 +105,157 @@ public enum Token {
 /// default: if something appears to need a shadow to be legible, the shape or
 /// the contrast is wrong.
 public enum Palette {
-    /// The island's fill. Pure black, and not negotiable: on a notched display
-    /// the island shares an edge with the bezel, and anything lighter turns
-    /// that join into a visible seam.
+
+    // MARK: - The island's own
+
+    /// The island's fill. Pure black rather than a system colour, and not
+    /// negotiable: on a notched display the island shares an edge with the
+    /// bezel, and there is no dynamic colour whose job is "exactly the black of
+    /// a MacBook's display housing". Anything lighter turns that join into a
+    /// visible seam.
     public static let island = Color.black
-    public static let surface = Color(red: 0.07, green: 0.07, blue: 0.08)
-    public static let surfaceRaised = Color(red: 0.13, green: 0.13, blue: 0.145)
-    public static let stroke = Color.white.opacity(0.10)
 
-    public static let textPrimary = Color.white
-    public static let textSecondary = Color.white.opacity(0.62)
+    /// The hairline on a floating island. Only drawn when the shape is detached
+    /// from the bezel — see `HUDView`.
+    public static let stroke = Color(nsColor: .separatorColor)
 
-    /// Listening. White — see above.
-    public static let live = Color.white
+    // MARK: - Content
+
+    public static let textPrimary = Color(nsColor: .labelColor)
+    public static let textSecondary = Color(nsColor: .secondaryLabelColor)
+
+    /// Listening. Plain content, deliberately — see above.
+    public static let live = textPrimary
+
+    // MARK: - Outcomes
+
     /// Thinking — transcribing and refining.
-    public static let thinking = Color(red: 0.55, green: 0.68, blue: 1.0)
+    public static let thinking = Color(nsColor: .systemTeal)
     /// Delivered.
-    public static let success = Color(red: 0.42, green: 0.88, blue: 0.60)
+    public static let success = Color(nsColor: .systemGreen)
     /// Recoverable problems and refusals.
-    public static let warning = Color(red: 1.0, green: 0.76, blue: 0.35)
-    public static let danger = Color(red: 1.0, green: 0.45, blue: 0.42)
+    public static let warning = Color(nsColor: .systemOrange)
+    /// Failures.
+    public static let danger = Color(nsColor: .systemRed)
 }
 
+/// The type scale.
+///
+/// Anchored to the macOS Human Interface Guidelines' text styles rather than to
+/// point sizes we chose ourselves. `Font.callout` also resolves to 12pt — but it
+/// is 12pt *because the system says so*, which means it arrives with the line
+/// height, tracking and weight pairing the platform intends, it stays correct if
+/// Apple retunes the scale, and it follows the user's text size setting.
+/// `.system(size: 12)` is frozen at twelve points forever and pairs with nothing.
+///
+/// The HIG's macOS scale, and what this app uses of it:
+///
+/// | Role                   | HIG style   | Resolves to      |
+/// |------------------------|-------------|------------------|
+/// | `screenTitle`          | Large Title | 26 pt            |
+/// | `featureSymbol`        | Title 2     | 17 pt            |
+/// | `listSymbol`           | Title 3     | 15 pt            |
+/// | `sectionTitle`         | Headline    | 13 pt bold       |
+/// | `body`                 | Body        | 13 pt            |
+/// | `rowTitle`             | Callout     | 12 pt            |
+/// | `secondary`            | Subheadline | 11 pt            |
+/// | `caption`              | Caption 1   | 10 pt            |
+///
+/// Title 1 is unused: nothing in the app is a document, and a 22pt heading in a
+/// 560pt-wide settings window would be shouting.
+///
+/// Emphasis is a weight applied *to* a style, never a jump to the next size up.
+/// A medium-weight callout is still a callout, and still scales with it.
 public enum Typeface {
-    /// Tabular figures so the word count does not jitter as it counts up.
-    public static let hudLabel = Font.system(size: 13, weight: .medium, design: .rounded)
-        .monospacedDigit()
-    public static let hudTranscript = Font.system(size: 13, weight: .regular)
-    public static let hudCaption = Font.system(size: 11, weight: .medium, design: .rounded)
 
-    /// Expanded card. Sized against the system's own alert typography rather
-    /// than the HUD's, because here the user is genuinely reading.
+    // MARK: - Windows
+    //
+    // Onboarding, settings and history are ordinary Mac windows, so their type
+    // behaves the way the system's does — including growing when the user turns
+    // text size up in Accessibility settings.
+
+    /// An onboarding step's heading. Large Title, weighted up: the HIG's regular
+    /// Large Title is a document title, and this is a hero line.
+    public static let screenTitle = Font.system(.largeTitle, weight: .semibold)
+
+    /// A card's heading. Headline is the style that exists for precisely this,
+    /// and it carries its own emphasis — no weight override needed.
+    public static let sectionTitle = Font.headline
+
+    /// Running prose: an onboarding subtitle, a transcript being read back.
+    public static let body = Font.body
+
+    /// A settings row's label, a list item, the name of a mode.
+    public static let rowTitle = Font.callout
+    public static let rowTitleEmphasised = Font.system(.callout, weight: .medium)
+
+    /// Help text beneath a control, and every other supporting line. The most
+    /// used role in the app by a wide margin.
+    public static let secondary = Font.subheadline
+    public static let secondaryEmphasised = Font.system(.subheadline, weight: .medium)
+
+    /// Metadata and asides — the smallest type the app is permitted to set.
+    public static let caption = Font.caption
+
+    /// Spoken-command phrases. Monospaced because they are literal strings the
+    /// user has to say exactly, and prose spacing makes them look approximate.
+    public static let code = Font.system(.subheadline, design: .monospaced)
+
+    /// A figure in the stats view. Rounded to match the readouts in the island,
+    /// and monospaced-digit so a number ticking up does not shift its neighbours.
+    public static let statValue = Font.system(.largeTitle, design: .rounded, weight: .semibold)
+        .monospacedDigit()
+
+    // MARK: Keys
+
+    /// A shortcut rendered the way a keyboard prints it.
+    public static let keycap = Font.system(.callout, design: .rounded, weight: .medium)
+    /// The same, when the keycap is the thing the screen is about.
+    public static let keycapLarge = Font.system(.title3, design: .rounded, weight: .medium)
+    /// The captured binding inside the recorder field.
+    public static let shortcutDisplay = Font.system(.body, design: .rounded, weight: .medium)
+
+    // MARK: Symbols
+    //
+    // A symbol beside text takes that text's own font, so the two share a
+    // baseline and grow together. Only symbols that stand alone need a size of
+    // their own, and there are two.
+
+    /// The icon leading an item in a bulleted list.
+    public static let listSymbol = Font.title3
+    /// The icon announcing a whole card.
+    public static let featureSymbol = Font.title2
+
+    // MARK: - The island
+    //
+    // The only fixed point sizes in the app, and a deliberate exception rather
+    // than an oversight.
+    //
+    // The island's geometry is reserved, not measured: its compact height *is*
+    // the notch's, and the expanded card's height is a constant the shape springs
+    // to before the text inside it is laid out. Type that grew with the user's
+    // text size would either clip against that reserved box or force the island
+    // to resize after it had finished moving — and the whole effect rests on the
+    // shape's edge landing exactly on the notch's. macOS's own menu bar does not
+    // scale either, for the same reason: chrome pinned to a physical bezel cannot.
+    //
+    // The cost is stated rather than hidden. Someone who has turned system text
+    // up gets larger type in every window of this app but not in the island —
+    // which is showing them a glyph and a word count, and is the one surface
+    // whose meaning survives being small.
+
+    /// The expanded card's headline. 14pt sits between Body and Title 3 because
+    /// the card is neither: it is denser than a window and louder than the bar.
     public static let islandTitle = Font.system(size: 14, weight: .semibold)
-    public static let islandDetail = Font.system(size: 12, weight: .regular)
-    /// The compact flank's trailing readout — a word count, never prose.
+    /// The card's second line — what to do about what just happened.
+    public static let islandDetail = Font.system(size: 12)
+    /// The compact bar's trailing readout. A word count, never prose, so the
+    /// digits are monospaced and the face is rounded to match the system's own
+    /// status chrome.
     public static let islandReadout = Font.system(size: 12, weight: .semibold, design: .rounded)
         .monospacedDigit()
+    /// The glyph leading the compact bar.
+    public static let islandGlyph = Font.system(size: 12, weight: .semibold)
+    /// The symbol inside the expanded card's icon tile.
+    public static let islandSymbol = Font.system(size: 19, weight: .medium)
 }

@@ -22,6 +22,12 @@ final class HUDPanel: NSPanel {
 
         isOpaque = false
         backgroundColor = .clear
+        // The island is black in both system appearances, so it is pinned to the
+        // dark one and every system colour drawn on it resolves against a dark
+        // ground. This is load-bearing rather than cosmetic: `labelColor`
+        // resolves to near-black in Light Mode, and the island's own text would
+        // disappear into its fill.
+        appearance = NSAppearance(named: .darkAqua)
         // The island draws its own shadow; a window shadow would trace the
         // oversized transparent frame instead of the visible shape.
         hasShadow = false

@@ -225,14 +225,14 @@ struct DictationSettingsTab: View {
                     Divider()
                     VStack(alignment: .leading, spacing: Token.Space.xxs) {
                         Text("Available commands")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(Typeface.secondaryEmphasised)
                         ForEach(VoiceCommand.allCases, id: \.self) { command in
                             HStack {
                                 Text("“\(services.settings.voiceCommandPrefix) \(command.phrases[0])”")
-                                    .font(.system(size: 11, design: .monospaced))
+                                    .font(Typeface.code)
                                 Spacer()
                                 Text(command.displayName)
-                                    .font(.system(size: 11))
+                                    .font(Typeface.secondary)
                                     .foregroundStyle(.secondary)
                             }
                         }

@@ -58,7 +58,7 @@ public struct HistoryView: View {
     private func row(for record: DictationRecord) -> some View {
         VStack(alignment: .leading, spacing: Token.Space.xxs) {
             Text(record.finalText)
-                .font(.system(size: 12))
+                .font(Typeface.rowTitle)
                 .lineLimit(2)
             HStack(spacing: Token.Space.xs) {
                 Text(record.createdAt, format: .relative(presentation: .named))
@@ -71,7 +71,7 @@ public struct HistoryView: View {
                     Image(systemName: "doc.on.clipboard")
                 }
             }
-            .font(.system(size: 10))
+            .font(Typeface.caption)
             .foregroundStyle(.secondary)
         }
         .padding(.vertical, Token.Space.hairline)
@@ -83,7 +83,7 @@ public struct HistoryView: View {
                 Card {
                     SectionHeader("Inserted")
                     Text(record.finalText)
-                        .font(.system(size: 13))
+                        .font(Typeface.body)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -111,7 +111,7 @@ public struct HistoryView: View {
                             subtitle: "Before \(record.refinementMode.displayName.lowercased()) clean-up."
                         )
                         Text(record.rawTranscript)
-                            .font(.system(size: 12))
+                            .font(Typeface.rowTitle)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
@@ -138,9 +138,9 @@ public struct HistoryView: View {
 
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack {
-            Text(label).font(.system(size: 11)).foregroundStyle(.secondary)
+            Text(label).font(Typeface.secondary).foregroundStyle(.secondary)
             Spacer()
-            Text(value).font(.system(size: 11)).monospacedDigit()
+            Text(value).font(Typeface.secondary).monospacedDigit()
         }
     }
 

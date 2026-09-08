@@ -25,9 +25,7 @@ public struct TriggerListEditor: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: Token.Space.sm) {
             if triggers.isEmpty {
-                Text("No shortcut set — dictation cannot be started.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Palette.danger)
+                InlineNotice(.problem, "No shortcut set — dictation cannot be started.")
             }
 
             ForEach(triggers, id: \.self) { shortcut in
@@ -48,7 +46,7 @@ public struct TriggerListEditor: View {
                     onRecordingChanged(false)
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 11))
+                .font(Typeface.secondary)
                 .foregroundStyle(.secondary)
             } else {
                 Button {
@@ -56,7 +54,7 @@ public struct TriggerListEditor: View {
                     isAdding = true
                 } label: {
                     Label("Add another shortcut", systemImage: "plus.circle")
-                        .font(.system(size: 12))
+                        .font(Typeface.rowTitle)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(AppSurface.accent)
@@ -64,7 +62,7 @@ public struct TriggerListEditor: View {
 
             if duplicateWarning {
                 Text("That shortcut is already in the list.")
-                    .font(.system(size: 11))
+                    .font(Typeface.secondary)
                     .foregroundStyle(.secondary)
             }
 
@@ -78,7 +76,7 @@ public struct TriggerListEditor: View {
         HStack(spacing: Token.Space.sm) {
             KeyCapView(shortcut: shortcut)
             Text(describe(shortcut))
-                .font(.system(size: 11))
+                .font(Typeface.secondary)
                 .foregroundStyle(.secondary)
             Spacer()
             Button {
@@ -111,12 +109,12 @@ public struct TriggerListEditor: View {
             HStack(alignment: .top, spacing: Token.Space.sm) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(Palette.warning)
-                    .font(.system(size: 11))
+                    .font(Typeface.secondary)
                 VStack(alignment: .leading, spacing: Token.Space.xxs) {
                     Text("macOS is using the Globe key for “\(GlobeKeyBehaviour.current.displayName)”")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Typeface.secondaryEmphasised)
                     Text("Set it to “Do Nothing”, or Masterful will never see the press.")
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                     Button("Open Keyboard settings") { GlobeKeyBehaviour.openKeyboardSettings() }
                         .controlSize(.small)

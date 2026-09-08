@@ -182,11 +182,11 @@ public struct HotkeyRecorderView: View {
                         Image(systemName: "keyboard")
                             .foregroundStyle(.secondary)
                         Text(shortcut.displayString)
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(Typeface.shortcutDisplay)
                     }
                     Spacer(minLength: Token.Space.sm)
                     Text(recorder.isRecording ? "esc to cancel" : "Change")
-                        .font(.system(size: 10))
+                        .font(Typeface.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, Token.Space.md)
@@ -228,12 +228,12 @@ public struct HotkeyRecorderView: View {
         HStack(alignment: .top, spacing: Token.Space.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(Palette.warning)
-                .font(.system(size: 11))
+                .font(Typeface.secondary)
             VStack(alignment: .leading, spacing: Token.Space.xxs) {
                 Text("macOS is using the Globe key for “\(GlobeKeyBehaviour.current.displayName)”")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Typeface.secondaryEmphasised)
                 Text("Set it to “Do Nothing” or Masterful will never see the press.")
-                    .font(.system(size: 11))
+                    .font(Typeface.secondary)
                     .foregroundStyle(.secondary)
                 Button("Open Keyboard settings") {
                     GlobeKeyBehaviour.openKeyboardSettings()

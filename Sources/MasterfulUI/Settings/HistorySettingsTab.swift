@@ -31,7 +31,7 @@ struct HistorySettingsTab: View {
                 }
                 if stats.currentStreak > 1 {
                     Text("\(stats.currentStreak) days in a row.")
-                        .font(.system(size: 11))
+                        .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                 }
                 Button("Open history") {
