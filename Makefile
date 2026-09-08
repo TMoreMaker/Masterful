@@ -17,7 +17,7 @@ CONTENTS    := $(APP_BUNDLE)/Contents
 #   make app SIGN_ID="Developer ID Application: ..."
 SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk -F'"' '/Apple Development|Developer ID Application/ {print $$2; exit}')
 
-.PHONY: all build app sign install run stop test clean reset-permissions icon shots probe probe-mouse eval record eval-asr eval-asr-list
+.PHONY: all build app sign install run stop test clean reset-permissions icon shots preview probe probe-mouse eval record eval-asr eval-asr-list
 
 all: app
 
@@ -68,6 +68,13 @@ shots:
 		-delay 170 07-failed.png -delay 190 08-failed-permission.png \
 		-resize 700x -layers OptimizeTransparency -colors 128 island-states.gif && \
 	echo "   island-states.gif" 
+
+## Cycle the HUD through every state with the microphone and hotkeys inactive.
+## Turn VoiceOver on first (Cmd-F5) to hear the announcements as well as see
+## them — they are posted only when VoiceOver is actually running, since nothing
+## else consumes them. ANCHOR=notch|topCenter|bottomCenter previews one position.
+preview:
+	@MASTERFUL_HUD_PREVIEW=1 $(if $(ANCHOR),MASTERFUL_HUD_ANCHOR=$(ANCHOR),) swift run Masterful
 
 ## Assemble and sign the .app bundle.
 app: build Resources/AppIcon.icns

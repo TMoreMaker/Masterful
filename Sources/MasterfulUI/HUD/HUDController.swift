@@ -16,6 +16,10 @@ public final class HUDController {
     public let model = HUDModel()
 
     private var panel: HUDPanel?
+    /// The last phase spoken, so a run of transcript updates — which arrive many
+    /// times a second and never change the phase — cannot stutter the same
+    /// announcement over and over.
+    private var lastAnnounced: DictationPhase?
     private var dismissTask: Task<Void, Never>?
     private var screenObserverTask: Task<Void, Never>?
     private var anchor: HUDAnchor
@@ -86,6 +90,17 @@ public final class HUDController {
     public func apply(phase: DictationPhase, transcript: String) {
         model.phase = phase
         model.transcript = transcript
+
+        // The spoken island. Driven from here rather than from the coordinator
+        // so that it stays what the visual one is — a pure function of the
+        // phase — and so anything that poses a phase is announced, the preview
+        // driver included.
+        if phase != lastAnnounced {
+            lastAnnounced = phase
+            if let spoken = HUDAnnouncer.announce(phase, from: panel) {
+                Log.hud.debug("announce: \(spoken, privacy: .public)")
+            }
+        }
     }
 
     public func push(level: AudioLevel) {

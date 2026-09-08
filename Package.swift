@@ -73,6 +73,7 @@ let package = Package(
         .testTarget(name: "MasterfulKitTests", dependencies: ["MasterfulKit"]),
         .testTarget(name: "InputControlTests", dependencies: ["InputControl"]),
         .testTarget(name: "RefinementTests", dependencies: ["Refinement"]),
+        .testTarget(name: "MasterfulUITests", dependencies: ["MasterfulUI"]),
         .testTarget(name: "PersistenceTests", dependencies: ["Persistence"]),
     ],
     swiftLanguageModes: [.v6]
