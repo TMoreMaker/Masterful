@@ -17,7 +17,7 @@ CONTENTS    := $(APP_BUNDLE)/Contents
 #   make app SIGN_ID="Developer ID Application: ..."
 SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk -F'"' '/Apple Development|Developer ID Application/ {print $$2; exit}')
 
-.PHONY: all build app sign install run stop test clean reset-permissions icon probe probe-mouse eval
+.PHONY: all build app sign install run stop test clean reset-permissions icon probe probe-mouse eval record eval-asr eval-asr-list
 
 all: app
 
@@ -31,6 +31,20 @@ probe-mouse:
 ## Measure clean-up quality and latency across every mode.
 eval:
 	@swift run -c release masterful-eval
+
+## Read the reference passages aloud, once. Run this in your own terminal:
+## a CLI inherits microphone permission from whatever launched it.
+record:
+	@swift run -c release masterful-asr-eval record $(PASSAGE)
+
+## Replay that recording through every installed model and rank them by word
+## error rate. Add LOCALES="en_GB,en_US" to name them explicitly.
+eval-asr:
+	@swift run -c release masterful-asr-eval run $(if $(LOCALES),--locales $(LOCALES),)
+
+## What has been recorded so far.
+eval-asr-list:
+	@swift run -c release masterful-asr-eval list
 
 ## Diagnose why text is not appearing in a particular app. Focus the field
 ## under test, then run this; it reports what each insertion strategy does.

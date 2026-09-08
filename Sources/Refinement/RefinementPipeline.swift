@@ -34,7 +34,9 @@ public struct RefinementPipeline: Refiner {
             return tidied
         }
 
-        guard TranscriptGuard.isTrustworthy(original: tidied, candidate: candidate) else {
+        guard TranscriptGuard.isTrustworthy(
+            original: tidied, candidate: candidate, profile: context.profile
+        ) else {
             Log.refinement.warning("Model output rejected by guard — using rule output")
             return tidied
         }

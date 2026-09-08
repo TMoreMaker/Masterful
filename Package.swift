@@ -14,6 +14,9 @@ let package = Package(
         .executable(name: "Masterful", targets: ["Masterful"]),
         // Measures clean-up quality and latency against a fixed corpus.
         .executable(name: "masterful-eval", targets: ["EvalTool"]),
+        // Measures recognition accuracy: which locale's acoustic model actually
+        // hears this speaker, replayed from one fixed recording.
+        .executable(name: "masterful-asr-eval", targets: ["ASREvalTool"]),
     ],
     targets: [
         // Pure domain. No AVFoundation, no AppKit, no I/O. Fully deterministic.
@@ -56,6 +59,11 @@ let package = Package(
         ),
 
         .executableTarget(name: "EvalTool", dependencies: ["MasterfulKit", "Refinement"]),
+
+        // Talks to Speech and AVFoundation directly rather than through
+        // Transcription: it deliberately varies the recogniser's configuration,
+        // which is exactly what the production engine fixes in place.
+        .executableTarget(name: "ASREvalTool", dependencies: ["MasterfulKit"]),
 
         .testTarget(name: "MasterfulKitTests", dependencies: ["MasterfulKit"]),
         .testTarget(name: "InputControlTests", dependencies: ["InputControl"]),

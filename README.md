@@ -66,7 +66,7 @@ MasterfulKit    Pure domain. The DictationSession state machine. No I/O at all.
 InputControl    CGEventTap, shortcut model, hold/double-tap resolution.
 AudioCapture    AVAudioEngine, format conversion, device hot-swap, level metering.
 Transcription   TranscriptionEngine protocol; SpeechAnalyzer implementation.
-Refinement      Clean-up ladder: rules → on-device model → optional cloud, all guarded.
+Refinement      Speech→text ladder: rules → on-device model → optional cloud, all guarded.
 TextInsertion   Accessibility / paste / typing strategies, secure-input refusal.
 Persistence     SwiftData history, stats and custom vocabulary.
 MasterfulUI     Design tokens, motion system, HUD, onboarding, settings, history.

@@ -17,7 +17,7 @@ struct CleanupSettingsTab: View {
             Card {
                 SectionHeader(
                     "Clean-up",
-                    subtitle: "Whatever the setting, Masterful discards any rewrite that strays from what you actually said."
+                    subtitle: "Masterful discards any rewrite that adds to what you meant, changes a number, or answers you instead of writing you down."
                 )
                 ForEach(RefinementMode.allCases, id: \.self) { mode in
                     modeRow(mode)
@@ -32,7 +32,7 @@ struct CleanupSettingsTab: View {
             Card {
                 SectionHeader(
                     "Per-app style",
-                    subtitle: "Masterful knows which app you're dictating into. Sentence casing belongs in an email, not in a terminal."
+                    subtitle: "Masterful knows which app you’re dictating into. The same thought belongs in different words in a terminal, an email and a text message."
                 )
                 SettingRow("Default", help: "Used when an app has no rule of its own.") {
                     Picker("", selection: Binding(
@@ -184,7 +184,7 @@ struct CleanupSettingsTab: View {
                         .lineLimit(1)
                     Spacer()
                     Picker("", selection: Binding(
-                        get: { services.settings.appProfiles[entry.bundleID] ?? .prose },
+                        get: { services.settings.appProfiles[entry.bundleID] ?? .formal },
                         set: { v in services.update { $0.appProfiles[entry.bundleID] = v } }
                     )) {
                         ForEach(FormattingProfile.allCases, id: \.self) { Text($0.displayName).tag($0) }

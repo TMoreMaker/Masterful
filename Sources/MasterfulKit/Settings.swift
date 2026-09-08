@@ -81,7 +81,7 @@ public struct Settings: Sendable, Codable, Equatable {
     public var localeIdentifier: String = Locale.current.identifier
 
     /// Fallback style, used when the frontmost app has no assignment.
-    public var defaultProfile: FormattingProfile = .prose
+    public var defaultProfile: FormattingProfile = .formal
     /// Bundle identifier → formatting profile.
     public var appProfiles: [String: FormattingProfile] = FormattingProfile.defaultAssignments
 

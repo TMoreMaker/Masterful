@@ -22,7 +22,9 @@ struct Metrics {
     /// most useful signal for hallucination.
     var inventedWords: [String]
 
-    static func measure(input: String, output: String, latency: Duration) -> Metrics {
+    static func measure(
+        input: String, output: String, latency: Duration, profile: FormattingProfile
+    ) -> Metrics {
         let inputTokens = tokens(input)
         let outputTokens = tokens(output)
         let inputSet = Set(inputTokens)
@@ -36,7 +38,9 @@ struct Metrics {
             latency: latency,
             retention: retention,
             lengthRatio: input.isEmpty ? 1 : Double(output.count) / Double(input.count),
-            passesGuard: TranscriptGuard.isTrustworthy(original: input, candidate: output),
+            passesGuard: TranscriptGuard.isTrustworthy(
+                original: input, candidate: output, profile: profile
+            ),
             fillersRemaining: outputTokens.filter { SpokenText.fillerWords.contains($0) }.count,
             sentenceTerminators: output.filter { ".!?".contains($0) }.count,
             inventedWords: Array(Set(outputTokens.filter { !inputSet.contains($0) })).sorted()

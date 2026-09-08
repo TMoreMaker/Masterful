@@ -20,7 +20,7 @@ public struct RemoteRefiner: Refiner {
 
     public init(
         provider: RemoteProvider,
-        profile: FormattingProfile = .prose,
+        profile: FormattingProfile = .formal,
         session: URLSession = .shared
     ) {
         self.provider = provider
@@ -69,7 +69,7 @@ public struct RemoteRefiner: Refiner {
             "messages": [[
                 "role": "user",
                 "content": CleanupPrompt.userMessage(
-                    transcript: text, vocabulary: context.vocabulary
+                    transcript: text, vocabulary: context.vocabulary, profile: context.profile
                 ),
             ]],
         ]
@@ -108,7 +108,7 @@ public struct RemoteRefiner: Refiner {
             "contents": [[
                 "role": "user",
                 "parts": [["text": CleanupPrompt.userMessage(
-                    transcript: text, vocabulary: context.vocabulary
+                    transcript: text, vocabulary: context.vocabulary, profile: context.profile
                 )]],
             ]],
             "generationConfig": ["temperature": 0, "maxOutputTokens": max(128, text.count)],

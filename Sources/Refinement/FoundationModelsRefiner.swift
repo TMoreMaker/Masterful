@@ -31,7 +31,7 @@ public struct FoundationModelsRefiner: Refiner {
 
     private let profile: FormattingProfile
 
-    public init(profile: FormattingProfile = .prose) {
+    public init(profile: FormattingProfile = .formal) {
         self.profile = profile
     }
 
@@ -54,7 +54,7 @@ public struct FoundationModelsRefiner: Refiner {
     /// hide it: the user spends a second or more actually speaking, so warming
     /// up the moment the hotkey goes down means the model is resident by the
     /// time there is a transcript to clean. Cheap and idempotent once warm.
-    public static func prewarm(profile: FormattingProfile = .prose) {
+    public static func prewarm(profile: FormattingProfile = .formal) {
         guard availability.isAvailable else { return }
         let session = LanguageModelSession(
             instructions: CleanupPrompt.instructions(for: profile)
@@ -74,7 +74,8 @@ public struct FoundationModelsRefiner: Refiner {
             let response = try await session.respond(
                 to: CleanupPrompt.userMessage(
                     transcript: text,
-                    vocabulary: context.vocabulary
+                    vocabulary: context.vocabulary,
+                    profile: context.profile
                 ),
                 options: GenerationOptions(
                     // Greedy decoding. This is a formatting task with one right

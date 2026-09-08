@@ -1,4 +1,5 @@
 import MasterfulKit
+import Foundation
 import Testing
 @testable import Refinement
 
@@ -232,5 +233,120 @@ struct InventedWordTests {
             original: "i spoke to the team this morning they want it redone",
             candidate: "I spoke to the team this morning. They want it redone."
         ))
+    }
+}
+
+@Suite("Rewrite guard")
+struct RewriteGuardTests {
+
+    /// The utterance that prompted registers to exist. Under the fidelity bounds
+    /// this fails every check; under the rewrite bounds it must pass, because it
+    /// is exactly what the user asked the tool to produce.
+    private static let spoken = """
+        I'm not a fan of the shadows. I think those should be omitted from the \
+        design, and I think that is a sort of primary rule. Instead of green, \
+        let's go with like a white yeah, like a white, yeah, a white look and \
+        feel. I want it to be slick, like similar to Apple.
+        """
+
+    @Test("A faithful compression is accepted for a writing register")
+    func acceptsCompression() {
+        let written = "Drop the shadows — treat that as a primary rule. Use white instead of green. Make it slick, similar to Apple."
+        #expect(TranscriptGuard.isTrustworthy(
+            original: Self.spoken, candidate: written, profile: .technical
+        ))
+        // …and is still correctly refused where fidelity was promised.
+        #expect(!TranscriptGuard.isTrustworthy(
+            original: Self.spoken, candidate: written, profile: .verbatim
+        ))
+    }
+
+    @Test("A rewrite that grew is rejected as an answer rather than a draft")
+    func rejectsGrowth() {
+        #expect(!TranscriptGuard.isTrustworthy(
+            original: "remove the shadows from the design",
+            candidate: "Shadows can add depth to an interface, but flat design has become the dominant idiom, so removing them is a reasonable choice for a modern look.",
+            profile: .technical
+        ))
+    }
+
+    @Test("A short hallucination cannot hide inside the short-utterance slack")
+    func rejectsShortHallucination() {
+        #expect(!TranscriptGuard.isTrustworthy(
+            original: "hello there",
+            candidate: "Completely unrelated sentence about something else entirely.",
+            profile: .informal
+        ))
+    }
+
+    @Test("Punctuating a short message is allowed to grow it slightly")
+    func allowsPunctuation() {
+        #expect(TranscriptGuard.isTrustworthy(
+            original: "yeah sounds good to me",
+            candidate: "Yeah, sounds good to me",
+            profile: .informal
+        ))
+    }
+
+    @Test("Summarising away most of the content is rejected")
+    func rejectsSummary() {
+        #expect(!TranscriptGuard.isTrustworthy(
+            original: Self.spoken, candidate: "Change the design.", profile: .technical
+        ))
+    }
+
+    @Test("A rewrite that loses or alters a number is rejected however well it reads")
+    func preservesNumbers() {
+        let spoken = "so the plot is 2200 rand for half a hectare and we farm 120 hectares in total"
+        #expect(!TranscriptGuard.isTrustworthy(
+            original: spoken,
+            candidate: "The plot costs 2200 rand per half hectare; we farm 100 hectares.",
+            profile: .technical
+        ))
+        #expect(TranscriptGuard.isTrustworthy(
+            original: spoken,
+            candidate: "The plot is 2200 rand per half hectare. We farm 120 hectares.",
+            profile: .technical
+        ))
+    }
+
+    @Test("Grouped and ungrouped numbers are the same number")
+    func numberGrouping() {
+        #expect(TranscriptGuard.isTrustworthy(
+            original: "the invoice came to 18,000 rand which is a lot of money for this",
+            candidate: "The invoice was 18000 rand.",
+            profile: .technical
+        ))
+    }
+}
+
+@Suite("Formatting profile migration")
+struct ProfileMigrationTests {
+
+    /// Settings written before registers existed must still load. Losing them
+    /// silently resets every per-app rule the user made.
+    @Test("Legacy profile names decode onto registers")
+    func decodesLegacyNames() throws {
+        let json = #"{"a":"prose","b":"message","c":"technical","d":"code"}"#
+        let decoded = try JSONDecoder().decode(
+            [String: FormattingProfile].self, from: Data(json.utf8)
+        )
+        #expect(decoded["a"] == .formal)
+        #expect(decoded["b"] == .informal)
+        #expect(decoded["c"] == .technical)
+        #expect(decoded["d"] == .code)
+    }
+
+    @Test("Only the writing registers rewrite phrasing or use lists")
+    func capabilities() {
+        #expect(FormattingProfile.technical.rewritesPhrasing)
+        #expect(FormattingProfile.formal.rewritesPhrasing)
+        #expect(FormattingProfile.informal.rewritesPhrasing)
+        #expect(!FormattingProfile.code.rewritesPhrasing)
+        #expect(!FormattingProfile.verbatim.rewritesPhrasing)
+
+        // A bulleted list in a text message reads as a memo.
+        #expect(FormattingProfile.technical.mayUseLists)
+        #expect(!FormattingProfile.informal.mayUseLists)
     }
 }

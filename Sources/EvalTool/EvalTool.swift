@@ -32,7 +32,7 @@ struct EvalTool {
         if availability.isAvailable {
             modes.append((
                 "on-device",
-                RefinementPipeline(model: FoundationModelsRefiner(profile: .prose))
+                RefinementPipeline(model: FoundationModelsRefiner(profile: .formal))
             ))
         }
 
@@ -72,12 +72,35 @@ struct EvalTool {
                 }
 
                 let metrics = Metrics.measure(
-                    input: testCase.transcript, output: output, latency: elapsed
+                    input: testCase.transcript, output: output, latency: elapsed,
+                    profile: testCase.profile
                 )
                 totals[mode.label, default: []].append(metrics)
 
                 print("   \(pad(mode.label, 9)) │ \(wrap(output))")
                 print("             │ \(summary(metrics))")
+
+                // What the model actually said, before the guard had an opinion.
+                //
+                // Without this the tool cannot distinguish "the model declined to
+                // rewrite" from "the model rewrote it and we threw the result
+                // away" — and those two failures have opposite fixes. Printed
+                // only when the guard intervened, so ordinary runs stay readable.
+                if mode.label != "rules" {
+                    let tidied = await RuleBasedRefiner().refine(
+                        testCase.transcript, context: context
+                    )
+                    let raw = await FoundationModelsRefiner(profile: testCase.profile)
+                        .refine(tidied, context: context)
+                    let verdict = TranscriptGuard.isTrustworthy(
+                        original: tidied, candidate: raw, profile: testCase.profile
+                    )
+                    if !verdict || raw != output {
+                        print("             │")
+                        print("      model  │ \(wrap(raw))")
+                        print("             │ \(verdict ? "guard accepted" : "GUARD REJECTED → fell back to rules")")
+                    }
+                }
             }
             print("")
         }
