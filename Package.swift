@@ -60,6 +60,11 @@ let package = Package(
 
         .executableTarget(name: "EvalTool", dependencies: ["MasterfulKit", "Refinement"]),
 
+        // Renders the island's documented states out of `HUDView` itself, so the
+        // design system's images are generated from the shipping view rather
+        // than screenshotted and left to rot. Same reasoning as `make icon`.
+        .executableTarget(name: "HUDShots", dependencies: ["MasterfulKit", "MasterfulUI"]),
+
         // Talks to Speech and AVFoundation directly rather than through
         // Transcription: it deliberately varies the recogniser's configuration,
         // which is exactly what the production engine fixes in place.

@@ -17,7 +17,7 @@ CONTENTS    := $(APP_BUNDLE)/Contents
 #   make app SIGN_ID="Developer ID Application: ..."
 SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk -F'"' '/Apple Development|Developer ID Application/ {print $$2; exit}')
 
-.PHONY: all build app sign install run stop test clean reset-permissions icon probe probe-mouse eval record eval-asr eval-asr-list
+.PHONY: all build app sign install run stop test clean reset-permissions icon shots probe probe-mouse eval record eval-asr eval-asr-list
 
 all: app
 
@@ -54,6 +54,20 @@ probe:
 ## Regenerate the app icon. Drawn in code so it stays reviewable in a diff.
 icon:
 	swift Tools/make-icon.swift
+
+## Render the island's documented states out of HUDView itself, plus the state
+## strip as a GIF. Same reasoning as `icon`: an image generated from the real
+## view cannot drift away from what ships. Needs ImageMagick for the GIF.
+shots:
+	@swift run HUDShots $(DIST_DIR)/shots
+	@command -v magick >/dev/null || { echo "   (skipping GIF — ImageMagick not installed)"; exit 0; }; \
+	cd $(DIST_DIR)/shots && magick -loop 0 \
+		-delay 110 01-listening.png -delay 120 02-latched.png \
+		-delay 70  03-transcribing.png -delay 130 04-delivered.png \
+		-delay 190 05-delivered-clipboard.png -delay 190 06-blocked.png \
+		-delay 170 07-failed.png -delay 190 08-failed-permission.png \
+		-resize 700x -layers OptimizeTransparency -colors 128 island-states.gif && \
+	echo "   island-states.gif" 
 
 ## Assemble and sign the .app bundle.
 app: build Resources/AppIcon.icns

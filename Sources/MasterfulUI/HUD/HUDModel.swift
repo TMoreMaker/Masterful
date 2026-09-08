@@ -52,6 +52,24 @@ public final class HUDModel {
 
     public init() {}
 
+    /// A model frozen in one state, for documentation and previews.
+    ///
+    /// The specimen sheet's island images are rendered from `HUDView` itself
+    /// rather than screenshotted, for the same reason the app icon is drawn by
+    /// `Tools/make-icon.swift`: an image generated from the real view cannot
+    /// drift away from what ships, and it is reproducible from a clean checkout.
+    /// This is the one seam that needs opening to do that — `isPresented` is
+    /// otherwise owned by `HUDController`, which is exactly where it belongs.
+    public static func posed(phase: DictationPhase, levels: [Float] = []) -> HUDModel {
+        let model = HUDModel()
+        model.phase = phase
+        model.isPresented = true
+        if !levels.isEmpty {
+            model.levels = Array(levels.suffix(Token.Size.levelHistory))
+        }
+        return model
+    }
+
     public func push(level: AudioLevel) {
         levels.removeFirst()
         levels.append(min(1, max(level.rms, level.peak * 0.7)))
