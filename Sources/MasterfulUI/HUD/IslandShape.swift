@@ -65,9 +65,14 @@ public struct HUDMetrics: Equatable, Sendable {
     /// Width of the physical notch, or zero on a display without one. The
     /// compact layout straddles this gap the way the Dynamic Island does.
     public var notchWidth: CGFloat
-    /// Height of the notch, which is also the compact island's height when
-    /// attached — matching it exactly is what makes the two read as one shape.
+    /// Height of the notch as macOS reports it. The island is drawn slightly
+    /// taller than this while it is showing something — see `compactHeight`.
     public var notchHeight: CGFloat
+    /// How far the notch's centre sits from the screen's, positive to the
+    /// right. Not always zero: the menu-bar strips either side of the notch are
+    /// not equal widths, so a bar centred on the *screen* reserves its gap
+    /// fractionally off the *camera*.
+    public var notchCenterOffset: CGFloat
     /// Distance from the top of the HUD's canvas down to where a *floating*
     /// island begins. Zero when attached, since an attached island starts at
     /// the bezel by definition.
@@ -77,11 +82,13 @@ public struct HUDMetrics: Equatable, Sendable {
         isAttached: Bool,
         notchWidth: CGFloat,
         notchHeight: CGFloat,
+        notchCenterOffset: CGFloat = 0,
         topOffset: CGFloat = 0
     ) {
         self.isAttached = isAttached
         self.notchWidth = notchWidth
         self.notchHeight = notchHeight
+        self.notchCenterOffset = notchCenterOffset
         self.topOffset = topOffset
     }
 
@@ -94,14 +101,28 @@ public struct HUDMetrics: Equatable, Sendable {
     /// is what lets the collapsed island rest invisibly inside it.
     var hasNotch: Bool { isAttached && notchWidth > 0 && notchHeight > 0 }
 
+    /// The height the island holds while it is showing something: the notch's,
+    /// plus enough to guarantee it is not the shorter of the two.
     var compactHeight: CGFloat {
-        isAttached && notchHeight > 0 ? notchHeight : Token.Island.compactHeight
+        guard isAttached, notchHeight > 0 else { return Token.Island.compactHeight }
+        return notchHeight + Token.Island.notchOvershoot
+    }
+
+    /// The height the island rests at when nothing is happening: the notch's
+    /// exactly, so it disappears into it, or nothing on a display without one.
+    /// No overshoot here — see `Token.Island.notchOvershoot` for why the safe
+    /// direction inverts once there is nothing to show.
+    var collapsedHeight: CGFloat { hasNotch ? notchHeight : 0 }
+
+    /// Width the compact bar keeps empty in the middle. The camera is in here.
+    var notchReservation: CGFloat {
+        hasNotch ? notchWidth + Token.Island.notchClearance * 2 : 0
     }
 
     /// Where the island's contents may begin vertically. On an attached island
     /// the notch physically occupies the top of the expanded card, so anything
     /// drawn there would be behind the camera housing.
     var contentTopInset: CGFloat {
-        isAttached ? notchHeight : 0
+        hasNotch ? compactHeight : 0
     }
 }

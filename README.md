@@ -163,6 +163,19 @@ well and opens into a card only when there is something to read
 drawn — the one moment you cannot spare the attention to read is while you are
 still speaking. Displays without a notch get the same island as a floating card.
 
+**The island is measured against the camera, not the screen.** Two of the
+numbers macOS reports are not quite the hardware, and both show. The physical
+cutout is a point or two deeper than `safeAreaInsets.top`, so an island drawn to
+that figure leaves the notch protruding below the bar as a small bump in the
+middle; it overshoots on purpose, because the errors are asymmetric — too tall
+is invisible against a wider shape in the same black, too short is not. And the
+menu-bar strips either side are not equal widths — 763pt and 762pt on a 14-inch
+Pro — which puts the notch half a point right of the display's midline. The
+island centres on that, and its two flanks are always the same width, so the gap
+it keeps clear stays over the camera however wide the readout grows. Sizing the
+flanks independently slid that gap left by half their difference and posted the
+text behind the notch, which is why the clipping got worse the more you said.
+
 **Four things become one thing.** Listening draws a live waveform. The moment
 the key comes up those four bars fall to the row of dots the waveform already
 draws in silence, gather to the centre, and weld into a single ball that breathes
@@ -374,3 +387,8 @@ is easy for everybody.
 Every mode above `Raw` runs the same guard. Cloud AI is the only setting that
 sends anything anywhere, it is off by default, and it degrades to rules-only
 rather than failing if no key is stored.
+
+These four modes are set once, for the whole machine. See
+[`docs/scope.md`](docs/scope.md) for the argument that effort belongs to the
+destination rather than the machine — and for what Masterful deliberately does
+not do. That page is a proposal, not a description of the current build.

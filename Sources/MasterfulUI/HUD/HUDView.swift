@@ -68,6 +68,10 @@ public struct HUDView: View {
             // stays fully opaque and simply has nothing to show. Elsewhere there
             // is no notch to hide in, so it has to actually leave.
             .opacity(model.isPresented || metrics.hasNotch ? 1 : 0)
+            // Aligned to the camera, not to the screen. The parent centres the
+            // island in a canvas that is centred on the display, which is half a
+            // point away from where the notch actually is.
+            .offset(x: metrics.notchCenterOffset)
     }
 
     private var shape: IslandShape {
@@ -89,17 +93,20 @@ public struct HUDView: View {
     private var size: CGSize {
         guard model.isPresented else {
             // Collapsed: exactly the notch, or nothing at all.
-            return CGSize(width: metrics.notchWidth, height: metrics.compactCollapsedHeight)
+            return CGSize(width: metrics.notchWidth, height: metrics.collapsedHeight)
         }
         switch presentation {
         case .compact:
             return CGSize(
-                width: metrics.notchWidth + leadingFlank + trailingFlank,
+                width: metrics.notchReservation + flank * 2,
                 height: metrics.compactHeight
             )
         case .expanded:
             return CGSize(
-                width: max(Token.Island.expandedWidth, metrics.notchWidth + Token.Space.xxl * 2),
+                width: max(
+                    Token.Island.expandedWidth,
+                    metrics.notchReservation + Token.Space.xxl * 2
+                ),
                 height: metrics.contentTopInset + Self.expandedContentHeight
             )
         }
@@ -110,14 +117,26 @@ public struct HUDView: View {
     /// detail is the most any message here is allowed to be.
     private static let expandedContentHeight: CGFloat = 86
 
-    private var leadingFlank: CGFloat { Token.Island.flankMinWidth }
+    /// One width, used on **both** sides of the notch.
+    ///
+    /// It has to be symmetric. The island is centred on the camera, so the gap
+    /// it reserves is only over the camera if the two flanks are equal — give
+    /// the trailing side more room for a wider readout and the gap slides left
+    /// by half the difference, pushing the readout underneath the notch. That
+    /// is why the clipping got worse the more words you dictated: the wider the
+    /// text, the further off the reservation drifted.
+    ///
+    /// So the flank is sized for whichever side needs the most, and the other
+    /// side gets the same. A checkmark alone in a flank sized for "12 words"
+    /// looks deliberate; a readout with its first characters behind the camera
+    /// does not.
+    private var flank: CGFloat {
+        max(Token.Island.flankMinWidth, flankContentWidth)
+    }
 
-    /// The trailing flank is sized to whatever it has to hold: the activity
-    /// indicator, or a readout whose width is measured rather than guessed. A
-    /// glyph's worth of slack here is not a rounding error — the bar is
-    /// symmetric about the notch, so anything mis-sized on the right visibly
-    /// drags the whole island off the camera's centre line.
-    private var trailingFlank: CGFloat {
+    /// What the widest side actually has to hold: the activity indicator, or a
+    /// readout whose width is measured rather than guessed.
+    private var flankContentWidth: CGFloat {
         switch model.phase {
         case .listening, .transcribing, .refining, .inserting:
             // One width across the whole of "we are working on it". The
@@ -179,11 +198,11 @@ public struct HUDView: View {
     private var compact: some View {
         HStack(spacing: 0) {
             leadingGlyph
-                .frame(width: leadingFlank)
+                .frame(width: flank)
             Color.clear
-                .frame(width: metrics.notchWidth)
+                .frame(width: metrics.notchReservation)
             trailingActivity
-                .frame(width: trailingFlank)
+                .frame(width: flank)
         }
     }
 
@@ -394,8 +413,3 @@ public struct HUDView: View {
     }
 }
 
-private extension HUDMetrics {
-    /// The height the island rests at when nothing is happening: the notch's,
-    /// so it disappears into it, or nothing on a display without one.
-    var compactCollapsedHeight: CGFloat { hasNotch ? notchHeight : 0 }
-}

@@ -45,6 +45,31 @@ public enum Token {
         /// Breathing room between a flank's content and the notch's edge.
         public static let flankPadding: CGFloat = 12
 
+        /// Drawn this much taller than the notch macOS reports.
+        ///
+        /// `safeAreaInsets.top` and the auxiliary menu-bar strips both say 33pt
+        /// on a 14-inch Pro, but measured against the hardware that is a point
+        /// or two short of the physical cutout. The two errors are not
+        /// symmetric, which is what makes overshooting the right answer: too
+        /// tall is invisible, because the island is wider than the notch and
+        /// exactly the same black, so the extra height only moves an already
+        /// straight bottom edge down. Too short leaves the notch protruding
+        /// below the island — a small bump in the middle of the bar.
+        ///
+        /// It applies only while the island is showing something. At rest it
+        /// goes back to the reported height, where erring *short* is the safe
+        /// direction: a shape smaller than the notch is hidden by it, a shape
+        /// larger than it is a black bar sitting under the camera all day.
+        public static let notchOvershoot: CGFloat = 2
+
+        /// Kept clear either side of the notch, on top of its measured width.
+        ///
+        /// The notch's bottom corners flare outward, and the reported strips
+        /// are integers describing something that is not. Two points is cheap
+        /// insurance against content that is technically beside the camera and
+        /// visibly underneath it.
+        public static let notchClearance: CGFloat = 2
+
         public static let expandedWidth: CGFloat = 360
         /// Icon tile in the expanded card, sized like a Now Playing artwork.
         public static let tile: CGFloat = 42

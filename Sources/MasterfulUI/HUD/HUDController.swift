@@ -144,10 +144,12 @@ public final class HUDController {
             guard let screen else {
                 return HUDMetrics(isAttached: true, notchWidth: 0, notchHeight: 0)
             }
+            let notch = notchGeometry(of: screen)
             return HUDMetrics(
                 isAttached: true,
-                notchWidth: notchWidth(of: screen),
-                notchHeight: screen.safeAreaInsets.top
+                notchWidth: notch.width,
+                notchHeight: screen.safeAreaInsets.top,
+                notchCenterOffset: notch.centerOffset
             )
 
         case .topCenter:
@@ -166,14 +168,26 @@ public final class HUDController {
         }
     }
 
-    /// Zero on a display without a notch, which is also exactly what the island
+    /// How wide the notch is, and how far its centre is from the screen's.
+    ///
+    /// Both zero on a display without one, which is also exactly what the island
     /// wants: the gap in the middle of the compact bar simply closes.
-    private func notchWidth(of screen: NSScreen) -> CGFloat {
+    ///
+    /// The centre is worth measuring rather than assuming. The two menu-bar
+    /// strips are not equal — 763pt and 762pt on this 14-inch — so the notch
+    /// sits half a point right of the display's midline, and an island centred
+    /// on the display reserves its gap half a point off the camera. Computed
+    /// from the strips' widths rather than their origins, because on a second
+    /// display those origins are in global coordinates that do not start at zero.
+    private func notchGeometry(of screen: NSScreen) -> (width: CGFloat, centerOffset: CGFloat) {
         guard screen.safeAreaInsets.top > 0,
               let left = screen.auxiliaryTopLeftArea,
               let right = screen.auxiliaryTopRightArea
-        else { return 0 }
-        return max(0, screen.frame.width - left.width - right.width)
+        else { return (width: 0, centerOffset: 0) }
+        return (
+            width: max(0, screen.frame.width - left.width - right.width),
+            centerOffset: (left.width - right.width) / 2
+        )
     }
 
     private func reposition() {
