@@ -37,8 +37,11 @@ this conflict and offers the fix rather than silently failing.
 | `make probe` | Diagnose why text isn't appearing in a specific app |
 | `make probe-mouse` | Show what your keyboard and mouse actually emit |
 | `make eval` | Measure clean-up quality and latency across every mode |
+| `make record` | Read the recogniser's test passages aloud, once |
+| `make eval-asr` | Rank every installed recogniser against that recording |
+| `make eval-asr-list` | Show which passages have been recorded so far |
 | `make preview` | Cycle the HUD through every state, no microphone needed |
-| `make shots` | Render the island's states out of `HUDView` into `build/shots` |
+| `make shots` | Render the island out of `HUDView` into `build/shots` — every state as a still, and the listening→thinking morph as a frame-by-frame strip and GIF |
 | `make voice` | Render what a VoiceOver user hears into `docs/audio` |
 
 Two environment switches, both intended to survive into normal use:
@@ -159,6 +162,39 @@ well and opens into a card only when there is something to read
 (`DictationPhase.hudPresentation`), which is also why the live transcript is not
 drawn — the one moment you cannot spare the attention to read is while you are
 still speaking. Displays without a notch get the same island as a floating card.
+
+**Four things become one thing.** Listening draws a live waveform. The moment
+the key comes up those four bars fall to the row of dots the waveform already
+draws in silence, gather to the centre, and weld into a single ball that breathes
+on its own. It is one view at two values of one number — `VoiceIndicator`, with
+`coalescence` running 0 to 1 — rather than two indicators taking turns, and the
+join is a blurred layer cut with an alpha threshold, so the shapes fuse at their
+boundary the way two drops do instead of sliding over one another.
+
+The version before it failed for a reason only visible on the hardware: at the
+top of a screen, in the corner of your eye, *anything small that throbs reads as
+the waveform*. A thinking indicator that pulsed in place looked exactly like
+still recording, and the glyph beside it was literally `waveform`. Hue and a 12pt
+symbol were carrying the whole distinction, and peripheral vision resolves
+neither. What separates the two states now is cardinality — four jostling things
+driven by your voice, against one whole thing driven by a clock — which the eye
+reports far faster than either. The morph runs on its own spring, the only place
+in the app deliberately slower than the island around it: at the usual 0.34s the
+fusion took three frames, which is correct as a state change and useless as a
+depiction of one.
+
+**Type and colour are the platform's, not ours.** Every size in the app resolves
+to a macOS HIG text style rather than to a point size someone liked, and every
+colour to a system colour — which means both arrive already tuned per appearance,
+already correct under Increase Contrast, and already following the user's text
+size. `.system(size: 12)` is frozen at twelve points forever and pairs with
+nothing. Emphasis is a weight applied to a style, never a jump to the next size
+up. The island is the documented exception on both counts: its type is fixed
+because its geometry is *reserved* rather than measured — the shape springs to a
+height before the text inside it is laid out, and it has to land exactly on the
+notch's edge — and its fill is pure black because no dynamic colour's job is
+"exactly the black of a MacBook's display housing". Deviations are written down
+where they happen rather than left to be discovered.
 
 **Clean-up can never change what you said.** `TranscriptGuard` bounds any model
 rewrite by length ratio and token retention, and anything that trips it is
@@ -304,6 +340,27 @@ The harness has already earned its place: it caught the rules layer leaving "i"
 lowercase, failing to capitalise weekdays, and collapsing only single-word
 stutters rather than repeated phrases — three defects that were invisible until
 the outputs sat next to each other.
+
+## Measuring the recogniser
+
+`make eval` measures the clean-up. It cannot say whether the recogniser heard you
+correctly in the first place — and for an accent the training data
+under-represents, that is the question that actually decides whether the product
+works. `masterful-asr-eval` answers it in two steps: `make record` reads a fixed
+set of passages aloud once, and `make eval-asr` replays that single recording
+through every installed locale model, ranking them by word error rate.
+
+Recording once and replaying is the entire idea. Dictating the same paragraph
+into each recogniser in turn compares the readings as much as it compares the
+models; holding the audio fixed leaves the model as the only variable.
+
+The first result was a negative one, which is worth recording rather than
+quietly dropping: on read passages the harness could not separate `en_GB` from
+`en_ZA` at all. Reading aloud flattens the things that distinguish a speaker —
+pace, hesitation, vowels reduced under speed — so the stimulus, not the tooling,
+is what needs replacing. Answering the locale question needs a spontaneous
+corpus, and until there is one the harness is only proving that careful reading
+is easy for everybody.
 
 ## Clean-up modes
 
