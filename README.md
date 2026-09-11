@@ -5,9 +5,10 @@ lands in whatever field you were already in. Nothing leaves the machine.
 
 Built for macOS 26 on Apple Silicon.
 
-![The island growing out of the notch, listening, coalescing into a thinking
-ball, reporting what it delivered, opening into a card for each thing that needs
-reading, and retracting back into the notch](docs/island/tour.webp)
+![Five dictations in a row: the island comes out of the notch, listens, thinks,
+says what it delivered and retracts — then returns for the clipboard card, the
+password refusal, nothing heard, and the missing microphone, going back to the
+bare notch between every one](docs/island/tour.webp)
 
 A real recording of the app running on a 14-inch MacBook Pro, every state and
 every spring, with one thing put back: the notch. That cutout is in the panel,
@@ -19,6 +20,13 @@ black bar hanging off the top edge for no visible reason, which is the one thing
 the design is not. So the camera housing is composited back at the geometry
 `HUDController` measures from that display — 763–948pt across, 33pt down — which
 is the only frame-by-frame edit in it.
+
+Five separate dictations, not one long morph through a list. The island returns
+to the bare notch between them because that is what the app does — a session
+ends when its outcome has been shown, and nothing in the product ever turns a
+delivered card into a refusal card. Shown as one continuous morph it read as a
+catalogue of states; shown as five arrivals it reads as five things happening to
+you, which is the thing being built.
 
 It is a WebP rather than a GIF because 256 colours cannot hold a wallpaper: the
 same footage as a GIF is seven times the size and visibly banded. The still
