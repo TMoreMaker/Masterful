@@ -91,17 +91,11 @@ public struct HUDView: View {
     /// appearing, opening, closing, leaving — is this one value changing under a
     /// spring, which is why they all feel like the same object.
     private var size: CGSize {
-        // Collapsed: exactly the notch, or nothing at all.
-        let collapsed = CGSize(width: metrics.notchWidth, height: metrics.collapsedHeight)
-        guard model.isPresented else { return collapsed }
-        guard let growth = model.posedGrowth else { return openSize }
-        // Posed mid-entrance. The view still decides what "open" means for this
-        // phase; the renderer only says how far along the spring is.
-        let open = openSize
-        return CGSize(
-            width: collapsed.width + (open.width - collapsed.width) * growth,
-            height: collapsed.height + (open.height - collapsed.height) * growth
-        )
+        guard model.isPresented else {
+            // Collapsed: exactly the notch, or nothing at all.
+            return CGSize(width: metrics.notchWidth, height: metrics.collapsedHeight)
+        }
+        return openSize
     }
 
     /// The size the island holds once it is all the way out.
@@ -198,7 +192,7 @@ public struct HUDView: View {
                 compact.transition(.islandContent)
             }
         }
-        .opacity(model.isPresented ? min(1, max(0, model.posedGrowth ?? 1)) : 0)
+        .opacity(model.isPresented ? 1 : 0)
         .animation(Motion.honouringPreferences(Motion.morph), value: model.phase)
     }
 

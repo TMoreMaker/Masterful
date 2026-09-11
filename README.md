@@ -6,16 +6,23 @@ lands in whatever field you were already in. Nothing leaves the machine.
 Built for macOS 26 on Apple Silicon.
 
 ![The island growing out of the notch, listening, coalescing into a thinking
-ball, and retracting back into the notch](docs/island/cycle.gif)
+ball, reporting what it delivered, opening into a card for each thing that needs
+reading, and retracting back into the notch](docs/island/tour.webp)
 
-Rendered straight out of `HUDView` by `make shots` rather than screen-recorded.
-That is not a shortcut: the notch is a cutout in the panel, not pixels in the
-framebuffer, so macOS draws the desktop straight through the region behind it
-and **no screenshot or screen recording of a real Mac contains a notch**. Point
-a capture at the top of a MacBook Pro with the menu bar showing and the
-wallpaper runs unbroken across the middle. A recording would show this island as
-a black bar hanging off the top edge for no visible reason, which is the one
-thing the design is not.
+A real recording of the app running on a 14-inch MacBook Pro, every state and
+every spring, with one thing put back: the notch. That cutout is in the panel,
+not in the framebuffer — macOS draws the desktop straight through the region
+behind it, so **no screenshot or screen recording of a Mac contains a notch**.
+Point a capture at the top of one with the menu bar showing and the wallpaper
+runs unbroken across the middle. Left alone, a recording shows this island as a
+black bar hanging off the top edge for no visible reason, which is the one thing
+the design is not. So the camera housing is composited back at the geometry
+`HUDController` measures from that display — 763–948pt across, 33pt down — which
+is the only frame-by-frame edit in it.
+
+It is a WebP rather than a GIF because 256 colours cannot hold a wallpaper: the
+same footage as a GIF is seven times the size and visibly banded. The still
+states below *are* rendered, straight out of `HUDView`, and those cannot drift.
 
 ---
 
