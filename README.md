@@ -5,8 +5,8 @@ lands in whatever field you were already in. Nothing leaves the machine.
 
 Built for macOS 26 on Apple Silicon.
 
-![The island at rest inside the notch, then listening, transcribing, reporting
-what it delivered, and opening into a card when something needs reading](docs/island/states.gif)
+![The island growing out of the notch, listening, coalescing into a thinking
+ball, and retracting back into the notch](docs/island/cycle.gif)
 
 Rendered straight out of `HUDView` by `make shots` rather than screen-recorded.
 That is not a shortcut: the notch is a cutout in the panel, not pixels in the
@@ -175,6 +175,9 @@ well and opens into a card only when there is something to read
 drawn — the one moment you cannot spare the attention to read is while you are
 still speaking. Displays without a notch get the same island as a floating card.
 
+![Every state the island has: at rest, listening, latched, transcribing, what it
+delivered, and the cards it opens into](docs/island/states.gif)
+
 **The island is measured against the camera, not the screen.** Two of the
 numbers macOS reports are not quite the hardware, and both show. The physical
 cutout is a point or two deeper than `safeAreaInsets.top`, so an island drawn to
@@ -213,7 +216,12 @@ breathing ball](docs/island/morph-closeup.gif)
 
 Every frame of that is the shipping view. The coalescence values come from
 `Motion.coalesceSpring` — the same spring SwiftUI runs in the app, sampled at the
-frame times — so retuning the spring changes the documentation with it.
+frame times — so retuning the spring changes the documentation with it. The
+entrance at the top of this page is the same trick one level up: the island's
+arrival *is* its size changing, so the strip walks `Motion.enterSpring` and
+`Motion.exitSpring` through `HUDView`'s own geometry rather than animating a
+shape that merely resembles it. The view keeps deciding what "open" means for
+each phase; the renderer only says how far along the spring is.
 
 **Type and colour are the platform's, not ours.** Every size in the app resolves
 to a macOS HIG text style rather than to a point size someone liked, and every

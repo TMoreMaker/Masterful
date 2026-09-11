@@ -65,7 +65,8 @@ public final class HUDModel {
         levels: [Float] = [],
         coalescence: Double? = nil,
         clock: TimeInterval? = nil,
-        presented: Bool = true
+        presented: Bool = true,
+        growth: Double? = nil
     ) -> HUDModel {
         let model = HUDModel()
         model.phase = phase
@@ -75,6 +76,7 @@ public final class HUDModel {
         model.isPresented = presented
         model.posedCoalescence = coalescence
         model.posedClock = clock
+        model.posedGrowth = growth
         if !levels.isEmpty {
             model.levels = Array(levels.suffix(Token.Size.levelHistory))
         }
@@ -93,6 +95,22 @@ public final class HUDModel {
 
     /// The instant to freeze the indicator's own clock at. `nil` runs live.
     public internal(set) var posedClock: TimeInterval?
+
+    /// How far out of the notch the island has come: 0 sitting inside it, 1
+    /// fully open.
+    ///
+    /// The same seam as `posedCoalescence`, for the same reason and one level
+    /// up. The island's entrance *is* its size changing, and SwiftUI runs that
+    /// under `Motion.enter` in response to `isPresented` — which a renderer
+    /// cannot photograph, because it asks for one frame and no spring has run.
+    /// Posing the fraction lets the strip walk `Motion.enterSpring`'s own values
+    /// through the real view, so the documented entrance cannot drift from the
+    /// shipping one.
+    ///
+    /// Deliberately a fraction rather than a size: the view keeps ownership of
+    /// what "open" means for each phase, and the renderer only says how far
+    /// along it is. `nil` in the running app, always.
+    public internal(set) var posedGrowth: Double?
 
     public func push(level: AudioLevel) {
         levels.removeFirst()

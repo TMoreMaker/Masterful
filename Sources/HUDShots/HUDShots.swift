@@ -44,6 +44,7 @@ enum HUDShots {
             render(shot, metrics: metrics, into: output)
         }
         MotionStrip.render(metrics: metrics, into: output)
+        MotionStrip.renderCycle(metrics: metrics, into: output)
         print("\n\(shots.count) images → \(output.path)")
 
         writeAnnouncements(into: output)

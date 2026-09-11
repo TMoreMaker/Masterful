@@ -15,12 +15,20 @@ public enum Motion {
 
     /// The island opening out of the notch. Bouncy enough that it reads as
     /// physical, short enough that it is over before it can annoy.
-    public static let enter = Animation.snappy(duration: 0.40, extraBounce: 0.26)
+    ///
+    /// Held as a `Spring` for the same reason as `morphSpring` below: this is
+    /// the app's signature move, and the specimen renderer samples this exact
+    /// curve frame by frame so the documented entrance is the shipping
+    /// entrance. `bounce: 0.41` is `.snappy(extraBounce: 0.26)` written out —
+    /// `.snappy` is bounce 0.15 plus whatever extra it is given.
+    public static let enterSpring = Spring(duration: 0.40, bounce: 0.41)
+    public static let enter = Animation.spring(enterSpring)
 
     /// Compact ↔ expanded, and any change to the island's size. The signature
     /// move: the shape is one continuous object growing, so the bounce has to
     /// be present but restrained or the card wobbles like jelly.
-    public static let island = Animation.snappy(duration: 0.46, extraBounce: 0.20)
+    public static let islandSpring = Spring(duration: 0.46, bounce: 0.35)
+    public static let island = Animation.spring(islandSpring)
 
     /// Changing contents inside a stable shape: listening → thinking → done.
     ///
@@ -53,7 +61,12 @@ public enum Motion {
     public static let coalesce = Animation.spring(coalesceSpring)
 
     /// Leaving. Fast and unspringy — a bouncy exit reads as indecision.
-    public static let exit = Animation.smooth(duration: 0.22)
+    ///
+    /// `bounce: 0` *is* `.smooth`; writing it as a `Spring` changes nothing
+    /// about the animation and lets the renderer sample the retraction the same
+    /// way it samples the entrance.
+    public static let exitSpring = Spring(duration: 0.22, bounce: 0)
+    public static let exit = Animation.spring(exitSpring)
 
     /// Content swapping inside a stable container.
     public static let content = Animation.smooth(duration: 0.26)

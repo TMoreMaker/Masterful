@@ -72,15 +72,16 @@ shots:
 		-resize 700x -dither None -colors 200 -layers OptimizeTransparency \
 		../../docs/island/states.gif && \
 	echo "   docs/island/states.gif" && \
-	magick -loop 0 -delay 3.33 motion/frame-*.png \
-		-crop 800x100+160+0 +repage \
+	magick -loop 0 -delay 3.33 cycle/frame-*.png \
+		-crop 900x120+110+0 +repage \
 		-resize 640x -dither None -colors 64 -layers OptimizeTransparency \
-		../../docs/island/morph.gif && \
+		../../docs/island/cycle.gif && \
+	echo "   docs/island/cycle.gif" && \
 	magick -loop 0 -delay 3.33 motion/frame-*.png \
 		-crop 200x76+700+0 +repage \
 		-resize 400% -dither None -colors 64 -layers OptimizeTransparency \
 		../../docs/island/morph-closeup.gif && \
-	echo "   docs/island/morph.gif, docs/island/morph-closeup.gif" 
+	echo "   docs/island/morph-closeup.gif" 
 
 ## Render what a VoiceOver user hears into docs/audio, through the same system
 ## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,
