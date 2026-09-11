@@ -64,11 +64,15 @@ public final class HUDModel {
         phase: DictationPhase,
         levels: [Float] = [],
         coalescence: Double? = nil,
-        clock: TimeInterval? = nil
+        clock: TimeInterval? = nil,
+        presented: Bool = true
     ) -> HUDModel {
         let model = HUDModel()
         model.phase = phase
-        model.isPresented = true
+        // `false` poses the island at rest — collapsed to exactly the notch,
+        // which is the one state that cannot be photographed on real hardware
+        // and the one that explains all the others.
+        model.isPresented = presented
         model.posedCoalescence = coalescence
         model.posedClock = clock
         if !levels.isEmpty {

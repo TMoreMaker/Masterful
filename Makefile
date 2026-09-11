@@ -56,25 +56,31 @@ icon:
 	swift Tools/make-icon.swift
 
 ## Render the island's documented states out of HUDView itself, plus the state
-## strip as a GIF. Same reasoning as `icon`: an image generated from the real
-## view cannot drift away from what ships. Needs ImageMagick for the GIF.
+## strip and the coalescence as GIFs in docs/island. Same reasoning as `icon`:
+## an image generated from the real view cannot drift away from what ships —
+## and unlike a screen recording it can show the notch, which is in the panel
+## rather than the framebuffer and so appears in no capture. Needs ImageMagick.
 shots:
 	@swift run HUDShots $(DIST_DIR)/shots
 	@command -v magick >/dev/null || { echo "   (skipping GIF — ImageMagick not installed)"; exit 0; }; \
-	cd $(DIST_DIR)/shots && magick -loop 0 \
+	mkdir -p docs/island && cd $(DIST_DIR)/shots && magick -loop 0 \
+		-delay 90  00-rest.png \
 		-delay 110 01-listening.png -delay 120 02-latched.png \
 		-delay 70  03-transcribing.png -delay 130 04-delivered.png \
 		-delay 190 05-delivered-clipboard.png -delay 190 06-blocked.png \
 		-delay 170 07-failed.png -delay 190 08-failed-permission.png \
-		-resize 700x -layers OptimizeTransparency -colors 128 island-states.gif && \
-	echo "   island-states.gif"; \
-	cd $(DIST_DIR)/shots && magick -loop 0 -delay 3.33 motion/frame-*.png \
+		-resize 700x -dither None -colors 200 -layers OptimizeTransparency \
+		../../docs/island/states.gif && \
+	echo "   docs/island/states.gif" && \
+	magick -loop 0 -delay 3.33 motion/frame-*.png \
 		-crop 800x100+160+0 +repage \
-		-resize 640x -layers OptimizeTransparency -colors 96 island-morph.gif && \
+		-resize 640x -dither None -colors 64 -layers OptimizeTransparency \
+		../../docs/island/morph.gif && \
 	magick -loop 0 -delay 3.33 motion/frame-*.png \
 		-crop 200x76+700+0 +repage \
-		-resize 500% -layers OptimizeTransparency -colors 96 island-morph-closeup.gif && \
-	echo "   island-morph.gif, island-morph-closeup.gif" 
+		-resize 400% -dither None -colors 64 -layers OptimizeTransparency \
+		../../docs/island/morph-closeup.gif && \
+	echo "   docs/island/morph.gif, docs/island/morph-closeup.gif" 
 
 ## Render what a VoiceOver user hears into docs/audio, through the same system
 ## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,

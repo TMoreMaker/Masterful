@@ -56,9 +56,14 @@ enum HUDShots {
         let phase: DictationPhase
         let caption: String
         var levels: [Float] = []
+        /// False renders the island at rest, collapsed inside the notch.
+        var presented: Bool = true
     }
 
     static let shots: [Shot] = [
+        .init(name: "00-rest", phase: .idle,
+              caption: "At rest — the island is the notch, and nothing else",
+              presented: false),
         .init(name: "01-listening", phase: .listening(.pushToTalk),
               caption: "Listening — push to talk", levels: levels),
         .init(name: "02-latched", phase: .listening(.latched),
@@ -115,7 +120,9 @@ enum HUDShots {
     static let canvas = CGSize(width: 560, height: 148)
 
     static func render(_ shot: Shot, metrics: HUDMetrics, into directory: URL) {
-        let model = HUDModel.posed(phase: shot.phase, levels: shot.levels)
+        let model = HUDModel.posed(
+            phase: shot.phase, levels: shot.levels, presented: shot.presented
+        )
 
         let scene = ZStack(alignment: .top) {
             // A stand-in for the desktop behind the island. Without something
@@ -123,6 +130,7 @@ enum HUDShots {
             // whole point of the compact bar is the gap where the camera is.
             Backdrop()
             MenuBar(height: metrics.notchHeight)
+            Notch(width: metrics.notchWidth, height: metrics.notchHeight)
             HUDView(model: model, metrics: metrics)
         }
         .frame(width: canvas.width, height: canvas.height)
@@ -177,6 +185,37 @@ enum HUDShots {
             .font(.system(size: 12))
             .foregroundStyle(.white.opacity(0.82))
             .frame(height: max(height, 24))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+    }
+
+    /// The camera housing.
+    ///
+    /// Drawn here because it cannot be captured. A screenshot or screen
+    /// recording of a notched Mac contains no notch: the cutout is in the
+    /// panel, not in the framebuffer, and macOS renders the desktop straight
+    /// through the region behind it. Point a capture at the top of this display
+    /// with the menu bar showing and the wallpaper runs unbroken across the
+    /// middle — which would make a recording of the island a black bar hanging
+    /// off the top edge of the screen for no visible reason.
+    ///
+    /// So the one element the hardware contributes is reconstructed, at the
+    /// width and height `HUDController` measured from this very display, and
+    /// sits *behind* the island exactly as the real one does: covered the
+    /// moment the island grows past it, and on its own when it retracts.
+    struct Notch: View {
+        let width: CGFloat
+        let height: CGFloat
+
+        var body: some View {
+            UnevenRoundedRectangle(
+                cornerRadii: RectangleCornerRadii(
+                    topLeading: 0, bottomLeading: 10, bottomTrailing: 10, topTrailing: 0
+                ),
+                style: .continuous
+            )
+            .fill(.black)
+            .frame(width: width, height: height)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }

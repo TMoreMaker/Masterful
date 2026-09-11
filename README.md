@@ -5,6 +5,18 @@ lands in whatever field you were already in. Nothing leaves the machine.
 
 Built for macOS 26 on Apple Silicon.
 
+![The island at rest inside the notch, then listening, transcribing, reporting
+what it delivered, and opening into a card when something needs reading](docs/island/states.gif)
+
+Rendered straight out of `HUDView` by `make shots` rather than screen-recorded.
+That is not a shortcut: the notch is a cutout in the panel, not pixels in the
+framebuffer, so macOS draws the desktop straight through the region behind it
+and **no screenshot or screen recording of a real Mac contains a notch**. Point
+a capture at the top of a MacBook Pro with the menu bar showing and the
+wallpaper runs unbroken across the middle. A recording would show this island as
+a black bar hanging off the top edge for no visible reason, which is the one
+thing the design is not.
+
 ---
 
 ## Running it
@@ -195,6 +207,13 @@ reports far faster than either. The morph runs on its own spring, the only place
 in the app deliberately slower than the island around it: at the usual 0.34s the
 fusion took three frames, which is correct as a state change and useless as a
 depiction of one.
+
+![Four bars falling to dots, gathering to the centre and welding into one
+breathing ball](docs/island/morph-closeup.gif)
+
+Every frame of that is the shipping view. The coalescence values come from
+`Motion.coalesceSpring` — the same spring SwiftUI runs in the app, sampled at the
+frame times — so retuning the spring changes the documentation with it.
 
 **Type and colour are the platform's, not ours.** Every size in the app resolves
 to a macOS HIG text style rather than to a point size someone liked, and every
