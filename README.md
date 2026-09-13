@@ -26,6 +26,7 @@ password refusal, nothing heard, and the missing microphone](docs/island/tour.we
 | **Written in** | Swift, SwiftUI, SwiftPM — no Xcode project file |
 | **Tested by** | 98 tests, plus two measurement harnesses of its own |
 | **Stored** | Transcripts only, locally. Audio is never kept |
+| **Accessible** | Spoken cues for VoiceOver users — [8 clips you can play](#what-a-voiceover-user-hears) |
 
 ## How it works
 
