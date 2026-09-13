@@ -86,8 +86,8 @@ VOICE ?= Daniel
 voice: shots
 	@mkdir -p docs/audio
 	@while IFS=$$'\t' read -r name text; do \
-		say -v "$(VOICE)" -o "docs/audio/$$name.m4a" --data-format=aac "$$text" && \
-		echo "   docs/audio/$$name.m4a  —  $$text"; \
+		say -v "$(VOICE)" -o "docs/audio/$$name.mp4" --file-format=mp4f --data-format=aac "$$text" && \
+		echo "   docs/audio/$$name.mp4  —  $$text"; \
 	done < $(DIST_DIR)/shots/announcements.tsv
 
 ## Cycle the HUD through every state with the microphone and hotkeys inactive.
