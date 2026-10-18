@@ -57,7 +57,7 @@ public struct TriggerListEditor: View {
                         .font(Typeface.rowTitle)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(AppSurface.accent)
+                .foregroundStyle(AppSurface.accentText)
             }
 
             if duplicateWarning {

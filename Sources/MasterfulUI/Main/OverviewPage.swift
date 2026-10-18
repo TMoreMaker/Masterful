@@ -171,8 +171,11 @@ struct OverviewPage: View {
         Card {
             HStack(alignment: .firstTextBaseline) {
                 SectionHeader("Most frequent fixes")
+                // `.link` draws in the system link colour whatever the tint, so
+                // the accent is applied to a plain button instead.
                 Button("Show All") { services.mainSection = .corrections }
-                    .buttonStyle(.link)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppSurface.accentText)
             }
             if topFixes.isEmpty {
                 Text("No misheard words fixed yet.")

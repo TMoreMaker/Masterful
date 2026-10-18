@@ -5,13 +5,15 @@ import SwiftUI
 
 public struct OnboardingView: View {
     @Bindable var services: UIServices
-    @State private var step: OnboardingStep = .welcome
+    @State private var step: OnboardingStep
     @State private var levelHistory = [Float](repeating: 0, count: Token.Size.levelHistory)
     @State private var practiceText = ""
     @State private var pollTask: Task<Void, Never>?
 
-    public init(services: UIServices) {
+    /// `initialStep` exists for `WindowPreview`; the app always starts at Welcome.
+    public init(services: UIServices, initialStep: OnboardingStep = .welcome) {
         self.services = services
+        _step = State(initialValue: initialStep)
     }
 
     public var body: some View {
@@ -22,6 +24,7 @@ public struct OnboardingView: View {
         }
         .frame(minWidth: 620, minHeight: 520)
         .background(AppSurface.background)
+        .tint(AppSurface.accent)
         .task { await beginPermissionPolling() }
         .onDisappear {
             pollTask?.cancel()
@@ -95,7 +98,13 @@ public struct OnboardingView: View {
                 .disabled(!canAdvance)
         }
         .padding(Token.Space.xxl)
-        .background(.bar)
+        // A card-coloured band with a hairline, rather than `.bar`: the bar
+        // material is a neutral grey, which read as a stray system panel at
+        // the foot of a warm window.
+        .background(AppSurface.card)
+        .overlay(alignment: .top) {
+            Rectangle().fill(AppSurface.separator).frame(height: 0.5)
+        }
     }
 
     private var primaryTitle: String {
@@ -137,7 +146,7 @@ public struct OnboardingView: View {
                 HStack(alignment: .top, spacing: Token.Space.md) {
                     Image(systemName: point.symbol)
                         .font(Typeface.listSymbol)
-                        .foregroundStyle(AppSurface.accent)
+                        .foregroundStyle(AppSurface.accentText)
                         .frame(width: 22)
                     VStack(alignment: .leading, spacing: Token.Space.hairline) {
                         Text(point.title).font(Typeface.rowTitleEmphasised)
@@ -181,7 +190,7 @@ public struct OnboardingView: View {
                     SectionHeader("Check your input", subtitle: "Say something — the bars should move.")
                     // Wider than the HUD's four bars: there is room here, and this is
                     // the one screen whose job is to prove the microphone works.
-                    WaveformView(samples: levelHistory, tint: AppSurface.accent, bars: 12)
+                    WaveformView(samples: levelHistory, tint: AppSurface.bloom, bars: 12)
                         .frame(height: 44)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Token.Space.sm)
@@ -353,6 +362,7 @@ public struct OnboardingView: View {
                         RoundedRectangle(cornerRadius: Token.Radius.sm, style: .continuous)
                             .strokeBorder(AppSurface.separator, lineWidth: 0.5)
                     )
+                    .accentFocusRing(cornerRadius: Token.Radius.sm)
 
                 if practiceWordCount >= 2 {
                     HStack(spacing: Token.Space.sm) {
@@ -382,7 +392,7 @@ public struct OnboardingView: View {
                 HStack(spacing: Token.Space.md) {
                     Image(systemName: "waveform")
                         .font(Typeface.featureSymbol)
-                        .foregroundStyle(AppSurface.accent)
+                        .foregroundStyle(AppSurface.accentText)
                     VStack(alignment: .leading, spacing: Token.Space.hairline) {
                         Text("Hold \(services.settings.triggersDisplayString) anywhere")
                             .font(Typeface.rowTitleEmphasised)

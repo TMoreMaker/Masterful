@@ -18,7 +18,7 @@ struct VocabularySettingsTab: View {
 
                 HStack(spacing: Token.Space.sm) {
                     TextField("Add a word or phrase", text: $draft)
-                        .textFieldStyle(.roundedBorder)
+                        .masterfulTextField()
                         .onSubmit(add)
                     Button("Add", action: add)
                         .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)

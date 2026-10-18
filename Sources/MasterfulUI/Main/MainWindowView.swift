@@ -50,6 +50,10 @@ public struct MainWindowView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 190, max: 240)
+            // The system sidebar material is a cool grey that sat beside warm
+            // paper like a panel from another app.
+            .scrollContentBackground(.hidden)
+            .background(AppSurface.sidebar)
         } detail: {
             // The page's name goes in the title bar, where a Mac window says
             // where you are, rather than repeated as a heading inside it.
@@ -63,5 +67,6 @@ public struct MainWindowView: View {
             .navigationTitle(services.mainSection.title)
         }
         .frame(minWidth: 760, minHeight: 520)
+        .tint(AppSurface.accent)
     }
 }

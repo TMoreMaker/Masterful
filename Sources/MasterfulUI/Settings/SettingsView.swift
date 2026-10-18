@@ -3,32 +3,41 @@ import InputControl
 import MasterfulKit
 import SwiftUI
 
+/// The tabs of the settings window.
+public enum SettingsTab: String, CaseIterable, Sendable {
+    case general, dictation, cleanup, vocabulary, history
+}
+
 public struct SettingsView: View {
     @Bindable var services: UIServices
+    @State private var tab: SettingsTab
 
-    public init(services: UIServices) {
+    /// `initialTab` exists for `WindowPreview`; the app always opens on General.
+    public init(services: UIServices, initialTab: SettingsTab = .general) {
         self.services = services
+        _tab = State(initialValue: initialTab)
     }
 
     public var body: some View {
-        TabView {
-            Tab("General", systemImage: "gearshape") {
+        TabView(selection: $tab) {
+            Tab("General", systemImage: "gearshape", value: .general) {
                 GeneralSettingsTab(services: services)
             }
-            Tab("Dictation", systemImage: "mic") {
+            Tab("Dictation", systemImage: "mic", value: .dictation) {
                 DictationSettingsTab(services: services)
             }
-            Tab("Clean-up", systemImage: "wand.and.sparkles") {
+            Tab("Clean-up", systemImage: "wand.and.sparkles", value: .cleanup) {
                 CleanupSettingsTab(services: services)
             }
-            Tab("Vocabulary", systemImage: "character.book.closed") {
+            Tab("Vocabulary", systemImage: "character.book.closed", value: .vocabulary) {
                 VocabularySettingsTab(services: services)
             }
-            Tab("History", systemImage: "clock.arrow.circlepath") {
+            Tab("History", systemImage: "clock.arrow.circlepath", value: SettingsTab.history) {
                 HistorySettingsTab(services: services)
             }
         }
         .frame(width: 560, height: 520)
+        .tint(AppSurface.accent)
         .task { await services.onRefreshPermissions() }
     }
 }
@@ -219,7 +228,7 @@ struct DictationSettingsTab: View {
                         help: "Only counts when a known command follows it, so ordinary speech is never swallowed."
                     ) {
                         TextField("", text: binding(\.voiceCommandPrefix))
-                            .textFieldStyle(.roundedBorder)
+                            .masterfulTextField()
                             .frame(width: 110)
                     }
                     Divider()

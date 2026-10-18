@@ -113,7 +113,7 @@ struct CleanupSettingsTab: View {
 
             HStack(spacing: Token.Space.sm) {
                 SecureField("Paste your key", text: $apiKeyDraft)
-                    .textFieldStyle(.roundedBorder)
+                    .masterfulTextField()
                 Button("Save") { saveKey() }
                     .disabled(apiKeyDraft.isEmpty || keyStatus == .checking)
             }
@@ -151,6 +151,7 @@ struct CleanupSettingsTab: View {
                 destination: services.settings.remoteProvider.consoleURL
             )
             .font(Typeface.secondary)
+            .foregroundStyle(AppSurface.accentText)
         }
     }
 

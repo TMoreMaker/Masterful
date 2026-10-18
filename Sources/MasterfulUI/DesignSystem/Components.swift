@@ -1,29 +1,123 @@
+import AppKit
 import MasterfulKit
 import SwiftUI
 
 /// Surfaces for the app's regular windows.
 ///
 /// Distinct from `Palette`, which is the always-dark HUD chip. Onboarding and
-/// settings are ordinary windows and should follow the system appearance like
-/// any other Mac app — using the HUD's fixed dark palette there would make them
-/// look like a web app pretending to be native.
+/// settings are ordinary windows and follow the system appearance like any other
+/// Mac app — but they are no longer dressed in the system's own colours.
+///
+/// **A documented deviation from the HIG.** The guidelines prefer system colours,
+/// and `Palette` still uses them, because the island has to read as part of the
+/// display. The windows are different: they are where Masterful is *opened*,
+/// and in system grey and blue they could be any app's preferences. So they wear
+/// the Masterful palette instead — warm paper, near-black ink, and plum — each
+/// value resolved per appearance, as a system colour would be. Every pair below
+/// was measured, and the numbers are in the comments rather than asserted.
+///
+/// What is lost is the user's chosen accent, inside these windows only. That is
+/// the trade Apple's own apps make when they set an accent of their own (Notes,
+/// Music), and it is why the colour is set once, as a `tint` at each window's
+/// root, rather than sprinkled: one accent per window still holds.
 public enum AppSurface {
-    public static let background = Color(nsColor: .windowBackgroundColor)
-    public static let card = Color(nsColor: .controlBackgroundColor)
-    public static let separator = Color(nsColor: .separatorColor)
+    /// Warm paper in light, near-black ink in dark — the black of the island.
+    public static let background = Color(light: 0xF7F4F1, dark: 0x0F0E12)
+    /// Cards sitting on `background`.
+    public static let card = Color(light: 0xFFFFFF, dark: 0x1A181E)
+    /// The main window's sidebar: a step recessed from `background`, so the
+    /// pages read as the surface and the navigation as the frame around them.
+    public static let sidebar = Color(light: 0xEFEBE7, dark: 0x16141A)
+    /// Card borders and dividers. Decorative only, never a control's sole edge.
+    public static let separator = Color(light: 0xE3DED9, dark: 0x2A2730)
 
-    /// The system accent — blue out of the box, and whatever the user chose in
-    /// System Settings otherwise.
-    ///
-    /// This app has no brand worth defending against the user's own preference:
-    /// it is a menu-bar utility that spends its life inside other people's
-    /// windows. More concretely, SwiftUI already tints every stock control here
-    /// — toggles, radio groups, the default button — with this exact colour, so
-    /// anything hand-picked put two accents in one window and lost.
-    ///
-    /// The teal it replaces measured 2.14:1 on a light window background, which
-    /// is what a colour chosen once in Dark Mode and then frozen looks like.
-    public static let accent = Color.accentColor
+    /// Fills: controls, the selected radio, progress, chart bars. White text on
+    /// it measures 6.0:1 in light and 4.55:1 in dark, so stock prominent buttons
+    /// keep a readable label; as a shape it clears 3:1 on every surface here.
+    public static let accent = Color(light: 0x9041A7, dark: 0xA653C0)
+
+    /// Accent *text* and glyphs. The same plum in light (5.5:1 on paper); in dark
+    /// the fill above is only 3.9:1 on a card, too low for small text, so text
+    /// lifts to a pale plum at 9.7:1.
+    public static let accentText = Color(light: 0x9041A7, dark: 0xE5AEE8)
+
+    /// Bloom — the identity colour. A fill for things that are live (the
+    /// practice waveform), never text: it is a light colour in both appearances.
+    public static let bloom = Color(light: 0xE2A5E5, dark: 0xE2A5E5)
+
+    /// A tinted wash behind a selected or highlighted row.
+    public static let accentWash = Color(light: 0xF6DFF7, dark: 0x3B2340)
+}
+
+extension Color {
+    /// A colour that resolves per appearance, the way a system colour does.
+    init(light: UInt32, dark: UInt32) {
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            let hex = isDark ? dark : light
+            return NSColor(
+                srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: 1
+            )
+        })
+    }
+}
+
+/// The keyboard focus ring, in the window accent.
+///
+/// `tint` reaches every control's fill but not the focus ring, which AppKit draws
+/// in the system accent regardless — so a plum window kept one blue outline on
+/// whichever field had focus. This draws the same shape in `AppSurface.accent`:
+/// 2pt, offset from the field the way the system's is, and only while the field
+/// actually holds focus, so keyboard users lose nothing.
+///
+/// `focusEffectDisabled` only removes rings SwiftUI draws. A `.roundedBorder`
+/// field is an `NSTextField`, whose ring survives it, so text fields use
+/// `masterfulTextField()` below rather than this directly.
+private struct AccentFocusRing: ViewModifier {
+    let cornerRadius: CGFloat
+    let outset: CGFloat
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focused($isFocused)
+            .focusEffectDisabled()
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius + outset, style: .continuous)
+                    .strokeBorder(AppSurface.accent, lineWidth: 2)
+                    .padding(-outset)
+                    .opacity(isFocused ? 1 : 0)
+                    .allowsHitTesting(false)
+            )
+            .animation(Motion.honouringPreferences(.easeOut(duration: 0.15)), value: isFocused)
+    }
+}
+
+extension View {
+    /// See `AccentFocusRing`.
+    public func accentFocusRing(cornerRadius: CGFloat, outset: CGFloat = 3) -> some View {
+        modifier(AccentFocusRing(cornerRadius: cornerRadius, outset: outset))
+    }
+
+    /// A single-line field in the window palette: the system's rounded-border
+    /// proportions, drawn by us so the focus ring can be plum. Apply to a
+    /// `TextField` or `SecureField`.
+    public func masterfulTextField() -> some View {
+        self
+            .textFieldStyle(.plain)
+            .padding(.horizontal, Token.Space.xs)
+            .padding(.vertical, Token.Space.xxs)
+            // Paper, not the card colour: a field is a well cut into the card.
+            .background(AppSurface.background, in: RoundedRectangle(cornerRadius: Token.Radius.sm - 2, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Token.Radius.sm - 2, style: .continuous)
+                    .strokeBorder(AppSurface.separator, lineWidth: 1)
+            )
+            .accentFocusRing(cornerRadius: Token.Radius.sm - 2)
+    }
 }
 
 /// A grouped container. The workhorse of both settings and onboarding.

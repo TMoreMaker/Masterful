@@ -4,20 +4,27 @@ import MasterfulUI
 import Persistence
 import SwiftUI
 
-/// Opens the main window over sample data, without the app around it.
+/// Opens one of the app's windows over sample data, without the app around it.
 ///
 /// For iterating on the window's pages the way `make preview` iterates on the
 /// island: no microphone, no hotkey, and nothing written to the real history —
 /// the store is in memory and seeded with eight weeks of dictations and fixes.
 ///
-///   make window-preview                 # Overview
+///   make window-preview                          # Overview
 ///   make window-preview PAGE=corrections
+///   make window-preview PAGE=settings/cleanup
+///   MASTERFUL_APPEARANCE=dark make window-preview PAGE=onboarding/hotkey
 @main
 @MainActor
 enum WindowPreview {
     static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
+        switch ProcessInfo.processInfo.environment["MASTERFUL_APPEARANCE"] {
+        case "dark": app.appearance = NSAppearance(named: .darkAqua)
+        case "light": app.appearance = NSAppearance(named: .aqua)
+        default: break
+        }
 
         let store = try! HistoryStore(inMemory: true)
         seed(store)
@@ -25,18 +32,45 @@ enum WindowPreview {
             settingsStore: SettingsStore(defaults: UserDefaults(suiteName: "masterful-window-preview")!),
             historyStore: store
         )
-        services.mainSection = CommandLine.arguments.dropFirst().first
-            .flatMap(MainSection.init(rawValue:)) ?? .overview
         services.onShowMain = { services.mainSection = $0 }
 
-        WindowManager.shared.show(
-            .main, title: "Masterful", size: CGSize(width: 940, height: 620),
-            minimumSize: CGSize(width: 760, height: 520), bridgesToolbar: true
-        ) { MainWindowView(services: services) }
+        let page = CommandLine.arguments.dropFirst().first ?? "overview"
+        let parts = page.split(separator: "/").map(String.init)
+        let title: String
+        switch parts.first {
+        case "settings":
+            title = "Masterful Settings"
+            let tab = parts.dropFirst().first.flatMap(SettingsTab.init(rawValue:)) ?? .general
+            WindowManager.shared.show(.settings, title: title, size: CGSize(width: 560, height: 520), resizable: false) {
+                SettingsView(services: services, initialTab: tab)
+            }
+        case "onboarding":
+            title = "Set up Masterful"
+            let name = parts.dropFirst().first ?? "welcome"
+            let step = OnboardingStep.allCases.first { String(describing: $0) == name } ?? .welcome
+            WindowManager.shared.show(.onboarding, title: title, size: CGSize(width: 660, height: 580), resizable: false) {
+                OnboardingView(services: services, initialStep: step)
+            }
+        default:
+            title = "Masterful"
+            services.mainSection = parts.first.flatMap(MainSection.init(rawValue:)) ?? .overview
+            WindowManager.shared.show(
+                .main, title: title, size: CGSize(width: 940, height: 620),
+                minimumSize: CGSize(width: 760, height: 520), bridgesToolbar: true
+            ) { MainWindowView(services: services) }
+        }
 
-        if let window = NSApp.windows.first(where: { $0.title == "Masterful" }) {
+        if let window = NSApp.windows.first(where: { $0.title == title }) {
             print("window \(window.windowNumber)")
             fflush(stdout)
+            // Activation is cooperative now, and a request made while the
+            // launching process still owns focus can be refused, which renders
+            // the window inactive (grey controls) in any screenshot. Ask again
+            // once launch has settled.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeKeyAndOrderFront(nil)
+            }
         }
         app.run()
     }
