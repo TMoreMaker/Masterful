@@ -26,14 +26,38 @@ struct ASREvalTool {
             case "record": try await record(only: arguments.dropFirst().first)
             case "run":    try await run(arguments: Array(arguments.dropFirst()))
             case "list":   try list()
+            case "file":   try await file(arguments: Array(arguments.dropFirst()))
             default:
-                print("Usage: masterful-asr-eval [record|run|list]")
+                print("Usage: masterful-asr-eval [record|run|list|file <audio>]")
                 exit(2)
             }
         } catch {
             print("\n\(error)")
             exit(1)
         }
+    }
+
+    // MARK: - file
+
+    /// Transcribes one recording exactly as the app would and prints only the
+    /// text, for tools that compare it against another engine.
+    ///
+    ///     masterful-asr-eval file answer.wav --locale en_ZA --vocabulary "Lesotho,Kgodisho"
+    static func file(arguments: [String]) async throws {
+        guard let path = arguments.first else {
+            print("Usage: masterful-asr-eval file <audio> [--locale id] [--vocabulary a,b]")
+            exit(2)
+        }
+        func option(_ name: String) -> String? {
+            arguments.firstIndex(of: name).flatMap { $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
+        }
+        let locale = Locale(identifier: option("--locale") ?? "en_ZA")
+        let vocabulary = (option("--vocabulary") ?? "")
+            .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let text = try await FileTranscriber.transcribe(
+            fileURL: URL(fileURLWithPath: path), locale: locale, vocabulary: vocabulary
+        )
+        print(text)
     }
 
     // MARK: - list

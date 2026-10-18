@@ -36,7 +36,7 @@ enum FileTranscriber {
             .sorted { $0.identifier < $1.identifier }
     }
 
-    static func transcribe(fileURL: URL, locale: Locale) async throws -> String {
+    static func transcribe(fileURL: URL, locale: Locale, vocabulary: [String] = []) async throws -> String {
         guard let supported = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
             throw TranscriptionError.unsupported(locale.identifier)
         }
@@ -73,6 +73,13 @@ enum FileTranscriber {
         }
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
+        // The same bias the app applies, so a comparison against another engine
+        // primed with the same names is a fair one.
+        if !vocabulary.isEmpty {
+            let context = AnalysisContext()
+            context.contextualStrings = [.general: vocabulary]
+            try await analyzer.setContext(context)
+        }
         let (input, continuation) = AsyncStream<AnalyzerInput>.makeStream(
             bufferingPolicy: .unbounded
         )

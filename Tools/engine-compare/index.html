@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engine Comparison</title>
+<style>
+  :root {
+    --bg: #f5f5f7; --surface: #ffffff; --ink: #1d1d1f; --ink-2: #6e6e73; --ink-3: #8e8e93;
+    --line: rgba(0,0,0,0.1); --accent: #0a84ff; --record: #ff3b30;
+    --word: rgba(255, 159, 10, 0.28); --word-ink: #8a4b00; --punct: rgba(10, 132, 255, 0.16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --surface: #2c2c2e; --ink: #f5f5f7; --ink-2: #a1a1a6; --ink-3: #8e8e93;
+      --line: rgba(255,255,255,0.12); --word: rgba(255, 159, 10, 0.32); --word-ink: #ffd60a;
+      --punct: rgba(10, 132, 255, 0.28);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 40px 24px 64px; }
+  h1 { font-size: 28px; font-weight: 600; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); margin: 0 0 28px; max-width: 70ch; }
+
+  .recorder {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: var(--surface); border: 0.5px solid var(--line); border-radius: 14px; padding: 20px;
+  }
+  button.rec {
+    appearance: none; border: 0; cursor: pointer; width: 64px; height: 64px; border-radius: 50%;
+    background: var(--record); display: grid; place-items: center; flex: none;
+    transition: transform 120ms ease;
+  }
+  button.rec:active { transform: scale(0.96); }
+  button.rec .dot { width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: border-radius 160ms ease, width 160ms, height 160ms; }
+  button.rec.on .dot { width: 20px; height: 20px; border-radius: 4px; }
+  button.rec:disabled { opacity: 0.4; cursor: default; }
+  .status { flex: 1; min-width: 220px; }
+  .status strong { display: block; font-size: 17px; font-weight: 600; }
+  .status span { color: var(--ink-2); }
+  .meter { height: 4px; border-radius: 2px; background: var(--line); margin-top: 10px; overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--ink-2); transition: width 60ms linear; }
+  .clock { font: 600 22px ui-monospace, "SF Mono", monospace; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--ink-2); font-size: 13px; margin: 28px 0 12px; }
+  .legend mark { padding: 0 4px; border-radius: 4px; }
+
+  .run { margin-bottom: 36px; }
+  .run-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--ink-3); font-size: 13px; margin-bottom: 10px; }
+  .columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 860px) { .columns { grid-template-columns: 1fr; } }
+  .col { background: var(--surface); border: 0.5px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .col h2 { font-size: 13px; font-weight: 600; margin: 0; }
+  .col .meta { color: var(--ink-3); font-size: 12px; margin-bottom: 10px; }
+  .col p { margin: 0; font-size: 16px; line-height: 1.6; }
+  mark { background: none; color: inherit; }
+  mark.word { background: var(--word); color: var(--word-ink); border-radius: 3px; padding: 0 2px; }
+  mark.punct { background: var(--punct); border-radius: 3px; padding: 0 2px; }
+  .working { color: var(--ink-3); font-style: italic; }
+  .empty { color: var(--ink-3); text-align: center; padding: 48px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Engine comparison</h1>
+  <p class="lede">Answer the way you would for real, with your natural pauses. Both engines run on this Mac and nothing is sent anywhere. Each recording is saved in <code>Eval/recordings/spontaneous</code>.</p>
+
+  <section class="recorder">
+    <button class="rec" id="rec" aria-label="Start recording"><span class="dot"></span></button>
+    <div class="status">
+      <strong id="title">Ready to record</strong>
+      <span id="detail">Click the button or press Space. Click again when you've finished.</span>
+      <div class="meter" aria-hidden="true"><i id="level"></i></div>
+    </div>
+    <div class="clock" id="clock">0:00</div>
+  </section>
+
+  <div class="legend">
+    <span><mark class="word">word</mark> different word from the Apple column (or, in the Apple column, from Whisper with your names)</span>
+    <span><mark class="punct">word,</mark> same word, different punctuation or capitals</span>
+  </div>
+
+  <section id="runs"><p class="empty">Your comparisons appear here, newest first.</p></section>
+</main>
+
+<script>
+const rec = document.getElementById("rec");
+const title = document.getElementById("title");
+const detail = document.getElementById("detail");
+const level = document.getElementById("level");
+const clock = document.getElementById("clock");
+const runs = document.getElementById("runs");
+
+let stream, context, processor, chunks = [], startedAt = 0, ticker;
+
+async function start() {
+  stream = await navigator.mediaDevices.getUserMedia({
+    // Raw, as Masterful hears it: no browser processing in front of the engines.
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 }
+  });
+  context = new AudioContext();
+  const source = context.createMediaStreamSource(stream);
+  processor = context.createScriptProcessor(4096, 1, 1);
+  chunks = [];
+  processor.onaudioprocess = (event) => {
+    const samples = event.inputBuffer.getChannelData(0);
+    chunks.push(new Float32Array(samples));
+    let peak = 0;
+    for (const s of samples) peak = Math.max(peak, Math.abs(s));
+    level.style.width = Math.min(100, peak * 140) + "%";
+  };
+  source.connect(processor);
+  processor.connect(context.destination);
+
+  startedAt = performance.now();
+  ticker = setInterval(() => {
+    const s = Math.floor((performance.now() - startedAt) / 1000);
+    clock.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }, 250);
+  rec.classList.add("on");
+  rec.setAttribute("aria-label", "Stop recording");
+  title.textContent = "Recording";
+  detail.textContent = "Talk as you would for a real answer. Click again or press Space to stop.";
+}
+
+async function stop() {
+  clearInterval(ticker);
+  processor.disconnect();
+  stream.getTracks().forEach(t => t.stop());
+  const rate = context.sampleRate;
+  await context.close();
+  rec.classList.remove("on");
+  rec.disabled = true;
+  level.style.width = "0";
+  title.textContent = "Transcribing";
+  detail.textContent = "Running Apple's recogniser and Whisper on this Mac. A long answer takes a few seconds.";
+
+  const wav = encodeWav(downsample(merge(chunks), rate, 16000), 16000);
+  const run = addRun();
+  try {
+    const response = await fetch("/compare", { method: "POST", body: wav, headers: { "Content-Type": "audio/wav" } });
+    fill(run, await response.json());
+    title.textContent = "Ready to record";
+    detail.textContent = "Record another, or compare the versions below.";
+  } catch (error) {
+    run.querySelector(".columns").innerHTML = `<p class="working">Couldn't reach the comparison server: ${error}</p>`;
+    title.textContent = "Something went wrong";
+    detail.textContent = "Is the server still running in Terminal?";
+  }
+  rec.disabled = false;
+  rec.setAttribute("aria-label", "Start recording");
+  clock.textContent = "0:00";
+}
+
+rec.addEventListener("click", () => rec.classList.contains("on") ? stop() : start().catch(e => {
+  title.textContent = "No microphone";
+  detail.textContent = `Chrome needs permission to use the microphone for this page. (${e.message})`;
+}));
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !rec.disabled) { e.preventDefault(); rec.click(); }
+});
+
+// MARK: Audio
+
+function merge(parts) {
+  const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+  let offset = 0;
+  for (const p of parts) { out.set(p, offset); offset += p.length; }
+  return out;
+}
+
+function downsample(samples, from, to) {
+  if (from === to) return samples;
+  const ratio = from / to, out = new Float32Array(Math.floor(samples.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    // Average across the span each output sample covers: a cheap low-pass, so
+    // the speech models are not fed aliasing.
+    const start = Math.floor(i * ratio), end = Math.min(samples.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += samples[j];
+    out[i] = sum / Math.max(1, end - start);
+  }
+  return out;
+}
+
+function encodeWav(samples, rate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2), view = new DataView(buffer);
+  const text = (o, s) => [...s].forEach((c, i) => view.setUint8(o + i, c.charCodeAt(0)));
+  text(0, "RIFF"); view.setUint32(4, 36 + samples.length * 2, true); text(8, "WAVE");
+  text(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  text(36, "data"); view.setUint32(40, samples.length * 2, true);
+  samples.forEach((s, i) => view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, s)) * 0x7fff, true));
+  return new Blob([view], { type: "audio/wav" });
+}
+
+// MARK: Results
+
+const COLUMNS = [
+  ["apple", "Apple", "What Masterful uses today"],
+  ["whisper", "Whisper", "On its own"],
+  ["whisperPrimed", "Whisper + your names", "Primed with your vocabulary"],
+];
+
+function addRun() {
+  runs.querySelector(".empty")?.remove();
+  const run = document.createElement("article");
+  run.className = "run";
+  run.innerHTML = `<div class="run-head"><span>${new Date().toLocaleTimeString()}</span><span class="file"></span></div>
+    <div class="columns">${COLUMNS.map(([key, name, sub]) =>
+      `<div class="col" data-key="${key}"><h2>${name}</h2><div class="meta">${sub}</div><p class="working">Working…</p></div>`).join("")}</div>`;
+  runs.prepend(run);
+  return run;
+}
+
+function fill(run, data) {
+  run.querySelector(".file").textContent =
+    `${data.recording} · ${data.locale}` + (data.vocabulary.length ? ` · names: ${data.vocabulary.join(", ")}` : "");
+  for (const [key] of COLUMNS) {
+    // Apple is compared against the primed Whisper, everything else against
+    // Apple: each column shows where it departs from the other engine.
+    const other = key === "apple" ? data.whisperPrimed.text : data.apple.text;
+    const col = run.querySelector(`[data-key="${key}"]`);
+    col.querySelector(".meta").textContent += ` · ${data[key].seconds}s`;
+    const p = col.querySelector("p");
+    p.className = "";
+    p.innerHTML = highlight(data[key].text, other);
+  }
+}
+
+const bare = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
+
+function highlight(text, against) {
+  const a = text.split(/\s+/).filter(Boolean), b = against.split(/\s+/).filter(Boolean);
+  const A = a.map(bare), B = b.map(bare);
+  const lcs = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = a.length - 1; i >= 0; i--)
+    for (let j = b.length - 1; j >= 0; j--)
+      lcs[i][j] = A[i] === B[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < a.length) {
+    if (j < b.length && A[i] === B[j]) {
+      out.push(a[i] === b[j] ? escape(a[i]) : `<mark class="punct">${escape(a[i])}</mark>`);
+      i++; j++;
+    } else if (j < b.length && lcs[i][j + 1] >= lcs[i + 1][j]) {
+      j++;
+    } else {
+      out.push(`<mark class="word">${escape(a[i])}</mark>`);
+      i++;
+    }
+  }
+  return out.join(" ");
+}
+
+const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+</script>
+</body>
+</html>
