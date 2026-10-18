@@ -95,7 +95,7 @@ const level = document.getElementById("level");
 const clock = document.getElementById("clock");
 const runs = document.getElementById("runs");
 
-let stream, context, processor, chunks = [], startedAt = 0, ticker;
+let stream, context, processor, chunks = [], startedAt = 0, ticker, loudest = 0;
 
 async function start() {
   stream = await navigator.mediaDevices.getUserMedia({
@@ -106,13 +106,25 @@ async function start() {
   const source = context.createMediaStreamSource(stream);
   processor = context.createScriptProcessor(4096, 1, 1);
   chunks = [];
+  loudest = 0;
+  const device = stream.getAudioTracks()[0]?.label || "the default microphone";
   processor.onaudioprocess = (event) => {
     const samples = event.inputBuffer.getChannelData(0);
     chunks.push(new Float32Array(samples));
     let peak = 0;
     for (const s of samples) peak = Math.max(peak, Math.abs(s));
+    loudest = Math.max(loudest, peak);
     level.style.width = Math.min(100, peak * 140) + "%";
   };
+  // Chrome hands over pure silence, rather than an error, when macOS has not
+  // given it the microphone. Say so within a couple of seconds instead of
+  // after a whole answer has been spoken into nothing.
+  setTimeout(() => {
+    if (rec.classList.contains("on") && loudest === 0) {
+      title.textContent = "Chrome is hearing nothing";
+      detail.textContent = `It is getting pure silence from ${device}. Stop, then check System Settings → Privacy & Security → Microphone → Google Chrome.`;
+    }
+  }, 2000);
   source.connect(processor);
   processor.connect(context.destination);
 
@@ -124,7 +136,7 @@ async function start() {
   rec.classList.add("on");
   rec.setAttribute("aria-label", "Stop recording");
   title.textContent = "Recording";
-  detail.textContent = "Talk as you would for a real answer. Click again or press Space to stop.";
+  detail.textContent = `Listening on ${device}. Talk as you would for a real answer. Click again or press Space to stop.`;
 }
 
 async function stop() {
@@ -139,6 +151,13 @@ async function stop() {
   title.textContent = "Transcribing";
   detail.textContent = "Running Apple's recogniser and Whisper on this Mac. A long answer takes a few seconds.";
 
+  if (loudest === 0) {
+    title.textContent = "Nothing was recorded";
+    detail.textContent = "Chrome only received silence, so there was nothing to compare. Check System Settings → Privacy & Security → Microphone → Google Chrome, then reload this page.";
+    rec.disabled = false;
+    clock.textContent = "0:00";
+    return;
+  }
   const wav = encodeWav(downsample(merge(chunks), rate, 16000), 16000);
   const run = addRun();
   try {
