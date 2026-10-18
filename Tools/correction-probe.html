@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Masterful correction probe</title>
+<style>
+  body { font: 15px -apple-system, sans-serif; margin: 40px; max-width: 640px; }
+  textarea, input { display: block; width: 100%; font: inherit; margin: 12px 0 24px; padding: 8px; }
+</style>
+<p>Masterful is checking whether it can see edits here. Leave this tab alone for a few seconds.</p>
+<label>Dictated text
+  <textarea id="dictated" rows="4">The simulation is placed front and centre of the paint</textarea>
+</label>
+<label>Somewhere else to go
+  <input id="elsewhere">
+</label>
+<script>
+  const field = document.getElementById("dictated");
+  field.focus();
+  field.setSelectionRange(field.value.length, field.value.length);
+</script>

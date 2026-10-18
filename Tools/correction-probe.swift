@@ -19,6 +19,13 @@ import ApplicationServices
 //
 // Edit a word, then click into a different field. It watches for 60 seconds,
 // prints every change as a word diff, and modifies nothing.
+//
+//   make probe-corrections-auto
+//
+// Does all of that unattended in Chrome: opens correction-probe.html, which
+// focuses a seeded field, then edits "paint" to "page" and tabs away with
+// synthesised keystrokes. Every keystroke is gated on the focused field holding
+// the seeded text, so nothing is ever typed anywhere else.
 
 func attr(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
     var value: CFTypeRef?
@@ -80,8 +87,23 @@ guard AXIsProcessTrusted() else {
     exit(1)
 }
 
-print("Focus a text field that already has some text in it. Probing in 5 seconds…")
-Thread.sleep(forTimeInterval: 5)
+let auto = CommandLine.arguments.contains("--auto")
+let seeded = "The simulation is placed front and centre of the paint"
+
+if auto {
+    let page = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .appendingPathComponent("correction-probe.html")
+    let open = Process()
+    open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    open.arguments = ["-a", "Google Chrome", page.path]
+    try open.run()
+    open.waitUntilExit()
+    print("Opened the test page in Chrome. Probing in 3 seconds…")
+    Thread.sleep(forTimeInterval: 3)
+} else {
+    print("Focus a text field that already has some text in it. Probing in 5 seconds…")
+    Thread.sleep(forTimeInterval: 5)
+}
 
 guard let app = NSWorkspace.shared.frontmostApplication else {
     print("No frontmost app."); exit(1)
@@ -154,8 +176,59 @@ print("    starts: \"\(baseline.prefix(60))\(baseline.count > 60 ? "…" : "")\"
 
 // MARK: 2 & 3. Watch
 
-print("\n[2] Now edit a word in the field. [3] Then click into a different field.")
-print("    Watching for 60 seconds. Ctrl-C to stop early.\n")
+let watchFor: TimeInterval = auto ? 8 : 60
+if auto {
+    print("\n[2] Editing \"paint\" → \"page\" in 2s. [3] Tabbing to another field in 4s.\n")
+} else {
+    print("\n[2] Now edit a word in the field. [3] Then click into a different field.")
+    print("    Watching for 60 seconds. Ctrl-C to stop early.\n")
+}
+
+/// Posts a key, with modifiers, to whatever has focus. Only ever called once
+/// the focused field has been proven to be the probe page's.
+func press(_ key: CGKeyCode, _ flags: CGEventFlags = []) {
+    for down in [true, false] {
+        let event = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: down)
+        event?.flags = flags
+        event?.post(tap: .cghidEventTap)
+    }
+    Thread.sleep(forTimeInterval: 0.05)
+}
+
+func type(_ string: String) {
+    for down in [true, false] {
+        let event = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: down)
+        let units = Array(string.utf16)
+        event?.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+        event?.post(tap: .cghidEventTap)
+    }
+}
+
+func stillOnProbePage() -> Bool {
+    guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.google.Chrome",
+          let now = focusedField()?.0 else { return false }
+    return CFEqual(now, field)
+}
+
+if auto {
+    guard baseline == seeded else {
+        print("    The focused field is not the probe page's — not typing anything. Aborting.")
+        restoreEnhanced()
+        exit(1)
+    }
+    let edit = Timer(timeInterval: 2, repeats: false) { _ in
+        guard stillOnProbePage() else { print("    Focus left the probe page — skipping the edit."); return }
+        press(125, .maskCommand)        // to the end of the text
+        press(51, .maskAlternate)       // delete the previous word
+        type("page")
+    }
+    let leave = Timer(timeInterval: 4, repeats: false) { _ in
+        guard stillOnProbePage() else { print("    Focus left the probe page — skipping the tab."); return }
+        press(48)                       // Tab to the next field
+    }
+    RunLoop.main.add(edit, forMode: .default)
+    RunLoop.main.add(leave, forMode: .default)
+}
 
 var lastSeen = baseline
 var notifications = 0
@@ -199,7 +272,7 @@ let poll = Timer(timeInterval: 0.5, repeats: true) { _ in
     }
 }
 RunLoop.main.add(poll, forMode: .default)
-RunLoop.main.run(until: Date().addingTimeInterval(60))
+RunLoop.main.run(until: Date().addingTimeInterval(watchFor))
 
 // MARK: Verdict
 
