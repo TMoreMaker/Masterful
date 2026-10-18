@@ -32,6 +32,13 @@ public final class DictationRecord {
     public var refinementModeRaw: String = RefinementMode.rules.rawValue
     public var wentToClipboard: Bool = false
 
+    /// Whether Masterful saw the field afterwards and could look for corrections.
+    /// Only watched dictations count towards the correction rate: a dictation
+    /// that could not be watched had zero corrections *seen*, not zero made.
+    public var correctionsWatched: Bool = false
+    /// The dictation as the user left it, when they changed it.
+    public var correctedText: String?
+
     public init(
         rawTranscript: String,
         finalText: String,
@@ -65,6 +72,42 @@ public final class DictationRecord {
     public var wordsPerMinute: Double {
         guard speechDuration >= 1, wordCount > 0 else { return 0 }
         return Double(wordCount) / (speechDuration / 60)
+    }
+}
+
+/// One edit the user made to a dictation after it landed.
+///
+/// Kept as rows rather than counts on the dictation, so that marking one as
+/// "not a mishearing" changes every figure that depended on it, with nothing to
+/// keep in step.
+@Model
+public final class CorrectionEntry {
+    #Index<CorrectionEntry>([\.createdAt])
+
+    public var createdAt: Date = Date()
+    /// The dictation this edit was made to.
+    public var dictationID: UUID = UUID()
+    /// What Masterful inserted. Empty when the user added a word it missed.
+    public var heard: String = ""
+    /// What the user changed it to. Empty when they deleted a word.
+    public var written: String = ""
+    public var kindRaw: String = CorrectionKind.word.rawValue
+    /// Inserted words this edit accounts for.
+    public var wordCount: Int = 1
+    public var applicationName: String?
+
+    public init(edit: CorrectionEdit, dictationID: UUID, applicationName: String?, at date: Date = Date()) {
+        self.createdAt = date
+        self.dictationID = dictationID
+        self.heard = edit.heard
+        self.written = edit.written
+        self.kindRaw = edit.kind.rawValue
+        self.wordCount = edit.wordCount
+        self.applicationName = applicationName
+    }
+
+    public var kind: CorrectionKind {
+        CorrectionKind(rawValue: kindRaw) ?? .word
     }
 }
 

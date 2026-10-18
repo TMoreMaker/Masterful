@@ -1,5 +1,6 @@
 import Foundation
 import MasterfulKit
+import Observation
 import SwiftData
 
 /// Aggregate figures for the stats view.
@@ -30,6 +31,7 @@ public struct DictationStats: Sendable, Equatable {
 /// and the write path runs once per dictation, which is nowhere near often
 /// enough to justify the complexity of a background context.
 @MainActor
+@Observable
 public final class HistoryStore {
 
     /// Average sustained typing speed for prose. Deliberately conservative —
@@ -37,11 +39,15 @@ public final class HistoryStore {
     /// therefore worthless.
     public nonisolated static let assumedTypingWordsPerMinute: Double = 40
 
-    public let container: ModelContainer
-    private var context: ModelContext { container.mainContext }
+    @ObservationIgnored public let container: ModelContainer
+
+    /// Bumped on every save, so an open window can reload when a dictation or
+    /// a correction lands behind it.
+    public private(set) var revision = 0
+    var context: ModelContext { container.mainContext }
 
     public init(inMemory: Bool = false) throws {
-        let schema = Schema([DictationRecord.self, VocabularyTerm.self])
+        let schema = Schema([DictationRecord.self, VocabularyTerm.self, CorrectionEntry.self])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: inMemory,
@@ -101,11 +107,14 @@ public final class HistoryStore {
     }
 
     public func delete(_ record: DictationRecord) {
+        let id = record.id
+        try? context.delete(model: CorrectionEntry.self, where: #Predicate { $0.dictationID == id })
         context.delete(record)
         save()
     }
 
     public func deleteAllRecords() {
+        try? context.delete(model: CorrectionEntry.self)
         try? context.delete(model: DictationRecord.self)
         save()
     }
@@ -116,6 +125,12 @@ public final class HistoryStore {
         let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
         try? context.delete(
             model: DictationRecord.self,
+            where: #Predicate { $0.createdAt < cutoff }
+        )
+        // Corrections are part of the history they were made to, so they age
+        // out with it rather than outliving the retention the user chose.
+        try? context.delete(
+            model: CorrectionEntry.self,
             where: #Predicate { $0.createdAt < cutoff }
         )
         save()
@@ -199,10 +214,11 @@ public final class HistoryStore {
 
     // MARK: - Saving
 
-    private func save() {
+    func save() {
         guard context.hasChanges else { return }
         do {
             try context.save()
+            revision += 1
         } catch {
             Log.lifecycle.error("History save failed: \(error.localizedDescription, privacy: .public)")
         }

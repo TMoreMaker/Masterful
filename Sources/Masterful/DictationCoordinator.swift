@@ -50,6 +50,8 @@ public final class DictationCoordinator {
     private let capture = AudioCaptureEngine()
     private let ducker = OutputDucker()
     private let transcriber: any TranscriptionEngine
+    /// Follows the field after each dictation, so the fixes you make are logged.
+    private let corrections = CorrectionWatcher()
 
     private var sessionTask: Task<Void, Never>?
     private var audioPumpTask: Task<Void, Never>?
@@ -157,6 +159,8 @@ public final class DictationCoordinator {
     }
 
     public func shutdown() {
+        // Quitting mid-watch keeps the fixes made so far.
+        corrections.end()
         hotkeys.stop()
         capture.shutdown()
         // Before anything else can fail: quitting with the machine left at a
@@ -329,6 +333,9 @@ public final class DictationCoordinator {
     // MARK: - Capture pipeline
 
     private func beginCapture() {
+        // The previous dictation's watch ends here, keeping what was fixed so
+        // far — the next one is about to change the field.
+        corrections.end()
         sessionTask?.cancel()
         audioPumpTask?.cancel()
         levelPumpTask?.cancel()
@@ -498,12 +505,20 @@ public final class DictationCoordinator {
                 ? nil
                 : commandNames.joined(separator: ", then ")
 
-            self.recordHistory(
+            let record = self.recordHistory(
                 finalText: insertedText.isEmpty ? (summary ?? text) : insertedText,
                 bundleID: bundleID,
                 appName: appName,
                 destination: destination
             )
+            // Only a plain dictation into a field can be followed: commands move
+            // focus or change the text themselves, and the clipboard is not a
+            // field at all.
+            if let record, commandNames.isEmpty, destination == .focusedField, !insertedText.isEmpty {
+                self.corrections.begin(inserted: insertedText) { [weak self] result in
+                    self?.historyStore.recordCorrections(result, for: record)
+                }
+            }
             self.apply(.delivered(Delivery(
                 characterCount: insertedText.count,
                 wordCount: insertedText.split(whereSeparator: \.isWhitespace).count,
@@ -514,14 +529,15 @@ public final class DictationCoordinator {
         }
     }
 
+    @discardableResult
     private func recordHistory(
         finalText: String,
         bundleID: String?,
         appName: String?,
         destination: Destination
-    ) {
-        guard settings.historyEnabled else { return }
-        historyStore.record(
+    ) -> DictationRecord? {
+        guard settings.historyEnabled else { return nil }
+        return historyStore.record(
             rawTranscript: lastRawTranscript,
             finalText: finalText,
             speechDuration: lastSpeechDuration,

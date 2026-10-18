@@ -80,8 +80,34 @@ enum AXBridge {
 
     static func focusedElementRole() -> String? {
         guard let element = focusedElement() else { return nil }
+        return role(of: element)
+    }
+
+    /// The focused element as one app reports it. Chrome answers this when it
+    /// leaves the system-wide query unanswered, which is why the correction
+    /// watcher asks here first.
+    static func focusedElement(in app: AXUIElement) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, focusedUIElement, &value) == .success,
+              let value,
+              CFGetTypeID(value) == AXUIElementGetTypeID()
+        else { return nil }
+        return (value as! AXUIElement)
+    }
+
+    static func role(of element: AXUIElement) -> String? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, role, &value) == .success else { return nil }
+        return value as? String
+    }
+
+    /// The element's whole text. Potentially a whole document, so only the
+    /// correction watcher reads it, and only after insertion.
+    static func value(of element: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, "AXValue" as CFString, &value) == .success else {
+            return nil
+        }
         return value as? String
     }
 }

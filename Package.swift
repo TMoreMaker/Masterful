@@ -65,6 +65,12 @@ let package = Package(
         // than screenshotted and left to rot. Same reasoning as `make icon`.
         .executableTarget(name: "HUDShots", dependencies: ["MasterfulKit", "MasterfulUI"]),
 
+        // The main window over seeded, in-memory history: its pages can be
+        // looked at without dictating anything or touching the real store.
+        .executableTarget(
+            name: "WindowPreview", dependencies: ["MasterfulKit", "MasterfulUI", "Persistence"]
+        ),
+
         // Talks to Speech and AVFoundation directly rather than through
         // Transcription: it deliberately varies the recogniser's configuration,
         // which is exactly what the production engine fixes in place.
@@ -75,6 +81,7 @@ let package = Package(
         .testTarget(name: "RefinementTests", dependencies: ["Refinement"]),
         .testTarget(name: "MasterfulUITests", dependencies: ["MasterfulUI"]),
         .testTarget(name: "PersistenceTests", dependencies: ["Persistence"]),
+        .testTarget(name: "TextInsertionTests", dependencies: ["TextInsertion"]),
     ],
     swiftLanguageModes: [.v6]
 )
