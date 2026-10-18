@@ -543,15 +543,23 @@ public final class DictationCoordinator {
             // focus or change the text themselves, and the clipboard is not a
             // field at all.
             if let record, commandNames.isEmpty, destination == .focusedField, !insertedText.isEmpty {
-                self.corrections.begin(inserted: insertedText) { [weak self] result in
+                // Terms this watch has taught, so a fix that changes again — "Th"
+                // saved mid-word, then "Thando" — takes back what it taught.
+                var taught: [String] = []
+                self.corrections.begin(inserted: insertedText) { [weak self] result, _ in
                     guard let self else { return }
                     self.historyStore.recordCorrections(result, for: record)
+                    let terms = Self.learner.terms(from: result?.edits ?? [])
+                    for stale in taught where !terms.contains(where: { $0.caseInsensitiveCompare(stale) == .orderedSame }) {
+                        self.historyStore.removeLearnedVocabulary(stale)
+                    }
+                    taught.removeAll { stale in !terms.contains { $0.caseInsensitiveCompare(stale) == .orderedSame } }
                     // A name you had to fix is taught to the recogniser, so the
                     // next dictation is primed for it rather than repeating it.
-                    for term in Self.learner.terms(from: result?.edits ?? []) {
-                        if self.historyStore.addVocabulary(term, isAutomatic: true) {
-                            Log.lifecycle.info("Learned \(term, privacy: .private) from a correction")
-                        }
+                    for term in terms where self.historyStore.addVocabulary(term, isAutomatic: true) {
+                        taught.append(term)
+                        self.hud.show(.learned(term))
+                        Log.lifecycle.info("Learned \(term, privacy: .private) from a correction")
                     }
                 }
             }

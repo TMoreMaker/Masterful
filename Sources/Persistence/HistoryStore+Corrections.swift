@@ -46,7 +46,12 @@ extension HistoryStore {
 
     // MARK: - Writing
 
-    /// Files what the watcher found against the dictation it watched.
+    /// Files what the watcher found against the dictation it watched,
+    /// *replacing* whatever was filed for it before.
+    ///
+    /// Replacing rather than appending is what lets fixes be saved as they are
+    /// made: each report describes the whole dictation as it now stands, so
+    /// typing "Th", pausing, then finishing "Thando" ends with one fix, not two.
     ///
     /// `nil` means the field could not be followed, which is recorded as such:
     /// the dictation then stays out of the rate rather than counting as perfect.
@@ -55,9 +60,11 @@ extension HistoryStore {
         guard record.modelContext != nil, !record.isDeleted else { return }
         guard let result else { return }
 
+        let id = record.id
+        try? context.delete(model: CorrectionEntry.self, where: #Predicate { $0.dictationID == id })
         record.correctionsWatched = true
+        record.correctedText = result.edits.isEmpty ? nil : result.correctedText
         if !result.edits.isEmpty {
-            record.correctedText = result.correctedText
             for edit in result.edits {
                 context.insert(CorrectionEntry(
                     edit: edit, dictationID: record.id, applicationName: record.applicationName
@@ -71,6 +78,17 @@ extension HistoryStore {
     /// stops counting against recognition.
     public func reclassify(_ correction: RecurringCorrection, as kind: CorrectionKind) {
         for entry in entries(matching: correction) { entry.kindRaw = kind.rawValue }
+        save()
+    }
+
+    /// Takes back a term that was learned automatically, when the fix that
+    /// taught it turned out to be something else. A term the user added by hand
+    /// is never touched.
+    public func removeLearnedVocabulary(_ term: String) {
+        for entry in vocabulary() where entry.isAutomatic
+            && entry.term.compare(term, options: .caseInsensitive) == .orderedSame {
+            context.delete(entry)
+        }
         save()
     }
 

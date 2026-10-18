@@ -41,6 +41,7 @@ public struct HUDView: View {
             value: model.isPresented
         )
         .animation(Motion.honouringPreferences(Motion.island), value: model.phase)
+        .animation(Motion.honouringPreferences(Motion.island), value: model.notice)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
     }
@@ -156,7 +157,14 @@ public struct HUDView: View {
                 Token.Island.flankMinWidth,
                 Self.width(of: compactReadout(delivery)) + Token.Island.flankPadding * 2
             )
-        case .idle, .failed, .blocked:
+        case .idle:
+            guard let notice = model.notice else { return Token.Island.flankMinWidth }
+            return max(
+                Token.Island.flankMinWidth,
+                Self.width(of: notice.leading) + Token.Island.flankPadding * 2,
+                Self.width(of: notice.trailing) + Token.Island.flankPadding * 2
+            )
+        case .failed, .blocked:
             return Token.Island.flankMinWidth
         }
     }
@@ -239,6 +247,14 @@ public struct HUDView: View {
             glyph("checkmark")
                 .transition(.scale(scale: 0.4).combined(with: .opacity))
 
+        case .idle where model.notice != nil:
+            // Coloured like the glyph it stands in for: this side says what
+            // happened, the other says to what.
+            Text(model.notice?.leading ?? "")
+                .font(Typeface.islandReadout)
+                .foregroundStyle(accent)
+                .lineLimit(1)
+
         case .failed, .blocked, .idle:
             EmptyView()
         }
@@ -276,6 +292,12 @@ public struct HUDView: View {
             // a lone glyph on the left of the notch with nothing opposite it
             // reads as a missing element rather than as a deliberately quiet one.
             Text(compactReadout(delivery))
+                .font(Typeface.islandReadout)
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(1)
+
+        case .idle where model.notice != nil:
+            Text(model.notice?.trailing ?? "")
                 .font(Typeface.islandReadout)
                 .foregroundStyle(Palette.textSecondary)
                 .lineLimit(1)
@@ -393,6 +415,9 @@ public struct HUDView: View {
     /// earns the right to say something with colour.
     private var accent: Color {
         switch model.phase {
+        // Something was added, which is an outcome — it carries colour, and the
+        // same colour as the other good outcome.
+        case .idle where model.notice != nil: Palette.success
         case .idle, .listening: Palette.live
         case .transcribing, .refining, .inserting: Palette.thinking
         case .delivered: Palette.success
@@ -403,7 +428,7 @@ public struct HUDView: View {
 
     private var accessibilityDescription: String {
         switch model.phase {
-        case .idle: "Masterful idle"
+        case .idle: model.notice?.spoken ?? "Masterful idle"
         case .listening(let mode):
             mode == .latched ? "Listening continuously" : "Listening"
         case .transcribing, .refining: "Transcribing"

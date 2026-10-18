@@ -33,6 +33,41 @@ extension DictationPhase {
     }
 }
 
+/// Something worth a glance that is not part of a dictation.
+///
+/// Shown only while the island is otherwise at rest, as a bar — never a card,
+/// because nothing here needs acting on. It exists for one reason: a fix made
+/// after a dictation changes what the next one will hear, and that is worth
+/// knowing happened.
+public enum IslandNotice: Equatable, Sendable {
+    /// A name or term was added to the vocabulary from a fix.
+    case learned(String)
+
+    /// Read across the camera: the verb on the left of the notch, the word on
+    /// the right. One string on one side would size *both* flanks to all of it
+    /// — they must match to keep the gap over the camera — and the bar grew
+    /// wide enough to cover the app's menus.
+    public var leading: String {
+        switch self {
+        case .learned: "Learned"
+        }
+    }
+
+    /// Long names are cut rather than the island widened without limit.
+    public var trailing: String {
+        switch self {
+        case .learned(let term):
+            term.count > 14 ? String(term.prefix(13)) + "…" : term
+        }
+    }
+
+    public var spoken: String {
+        switch self {
+        case .learned(let term): "Learned \(term)"
+        }
+    }
+}
+
 /// Everything the HUD draws.
 ///
 /// A plain projection of `DictationPhase` plus the two things that change too
@@ -42,6 +77,8 @@ extension DictationPhase {
 public final class HUDModel {
     public var phase: DictationPhase = .idle
     public var transcript: String = ""
+    /// Drawn only while `phase` is `.idle`. Owned by `HUDController`.
+    public internal(set) var notice: IslandNotice?
     public internal(set) var isPresented: Bool = false
 
     /// Rolling window of loudness, oldest first. Fixed length so the waveform's
@@ -65,10 +102,12 @@ public final class HUDModel {
         levels: [Float] = [],
         coalescence: Double? = nil,
         clock: TimeInterval? = nil,
-        presented: Bool = true
+        presented: Bool = true,
+        notice: IslandNotice? = nil
     ) -> HUDModel {
         let model = HUDModel()
         model.phase = phase
+        model.notice = notice
         // `false` poses the island at rest — collapsed to exactly the notch,
         // which is the one state that cannot be photographed on real hardware
         // and the one that explains all the others.

@@ -88,6 +88,8 @@ public final class HUDController {
     // MARK: - Content
 
     public func apply(phase: DictationPhase, transcript: String) {
+        // A dictation takes the island back from any notice it was showing.
+        if phase != .idle { model.notice = nil }
         model.phase = phase
         model.transcript = transcript
 
@@ -105,6 +107,41 @@ public final class HUDController {
 
     public func push(level: AudioLevel) {
         model.push(level: level)
+    }
+
+    /// How long a notice holds before retracting: long enough to read two
+    /// words in the corner of the eye, short enough not to sit over the work.
+    public static let noticeDwell: Duration = .milliseconds(2_200)
+
+    /// Brings the island out of the notch to say one thing, then retracts.
+    ///
+    /// Only from rest. A dictation in flight owns the island, and a notice that
+    /// appeared over it would make the island say two things at once — so it is
+    /// dropped instead; what it reported is in the main window either way.
+    public func show(_ notice: IslandNotice) {
+        guard model.phase == .idle else { return }
+        model.notice = notice
+        present()
+        if HUDAnnouncer.isActive {
+            NSAccessibility.post(
+                element: panel as Any,
+                notification: .announcementRequested,
+                userInfo: [
+                    .announcement: notice.spoken,
+                    .priority: NSAccessibilityPriorityLevel.medium.rawValue,
+                ]
+            )
+        }
+        dismiss(after: Self.noticeDwell) { [weak self] in
+            // Cleared after the retraction rather than at its start: the flank
+            // is sized to the notice's text, and dropping it mid-spring would
+            // snap the island narrower while it is still closing.
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(400))
+                guard let self, !self.model.isPresented else { return }
+                self.model.notice = nil
+            }
+        }
     }
 
     // MARK: - Geometry

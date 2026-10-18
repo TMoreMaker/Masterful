@@ -98,4 +98,29 @@ struct CorrectionStoreTests {
         store.delete(record)
         #expect(store.recurringCorrections().isEmpty)
     }
+
+    @Test("Recording again replaces, so a fix saved mid-typing does not linger")
+    func recordingReplaces() throws {
+        let store = try HistoryStore(inMemory: true)
+        let record = dictation(store, tenWords)
+        store.recordCorrections(
+            CorrectionResult(correctedText: "", edits: [CorrectionEdit(heard: "tandu", written: "Th", kind: .word)]),
+            for: record
+        )
+        store.recordCorrections(
+            CorrectionResult(correctedText: "", edits: [CorrectionEdit(heard: "tandu", written: "Thando", kind: .word)]),
+            for: record
+        )
+        #expect(store.corrections(for: record).map(\.written) == ["Thando"])
+    }
+
+    @Test("Only automatically learned terms can be taken back")
+    func removeLearned() throws {
+        let store = try HistoryStore(inMemory: true)
+        store.addVocabulary("Th", isAutomatic: true)
+        store.addVocabulary("Lerato")
+        store.removeLearnedVocabulary("th")
+        store.removeLearnedVocabulary("Lerato")
+        #expect(store.vocabularyStrings() == ["Lerato"])
+    }
 }

@@ -19,7 +19,7 @@ struct CorrectionWatcherLiveTests {
 
     static let seeded = "The simulation is placed front and centre of the paint"
 
-    @Test("A word fixed after dictating is logged, and leaving the field ends the watch")
+    @Test("A fix is saved once typing pauses, and leaving the field ends the watch")
     func fixIsCaptured() async throws {
         let page = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -34,7 +34,10 @@ struct CorrectionWatcherLiveTests {
 
         let watcher = CorrectionWatcher()
         var result: CorrectionResult??
-        watcher.begin(inserted: Self.seeded) { result = .some($0) }
+        var settled: CorrectionResult?
+        watcher.begin(inserted: Self.seeded) { update, isFinal in
+            if isFinal { result = .some(update) } else { settled = update }
+        }
 
         // Let the watch attach, then fix the last word and tab away.
         try await Task.sleep(for: .seconds(2.5))
@@ -46,7 +49,11 @@ struct CorrectionWatcherLiveTests {
         press(125, .maskCommand)
         press(51, .maskAlternate)
         type("page")
-        try await Task.sleep(for: .seconds(1.5))
+
+        // Saved once typing pauses, without leaving the field.
+        try await Task.sleep(for: CorrectionWatcher.settleDelay + .seconds(1.5))
+        #expect(settled?.edits == [CorrectionEdit(heard: "paint", written: "page", kind: .word)])
+        #expect(result == nil, "The watch ended before focus left the field")
         press(48)
 
         for _ in 0..<30 where result == nil { try await Task.sleep(for: .milliseconds(200)) }

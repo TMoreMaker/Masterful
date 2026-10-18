@@ -58,6 +58,7 @@ enum HUDShots {
         var levels: [Float] = []
         /// False renders the island at rest, collapsed inside the notch.
         var presented: Bool = true
+        var notice: IslandNotice?
     }
 
     static let shots: [Shot] = [
@@ -82,6 +83,9 @@ enum HUDShots {
               caption: "Nothing heard"),
         .init(name: "08-failed-permission", phase: .failed(.microphonePermissionDenied),
               caption: "Microphone permission missing"),
+        .init(name: "09-learned", phase: .idle,
+              caption: "A name fixed after dictating, added to the vocabulary",
+              notice: .learned("Thando")),
     ]
 
     // MARK: - What each state says
@@ -121,7 +125,7 @@ enum HUDShots {
 
     static func render(_ shot: Shot, metrics: HUDMetrics, into directory: URL) {
         let model = HUDModel.posed(
-            phase: shot.phase, levels: shot.levels, presented: shot.presented
+            phase: shot.phase, levels: shot.levels, presented: shot.presented, notice: shot.notice
         )
 
         let scene = ZStack(alignment: .top) {
