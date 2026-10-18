@@ -88,16 +88,53 @@ guard let app = NSWorkspace.shared.frontmostApplication else {
 }
 print("\nFrontmost: \(app.localizedName ?? "unknown") (\(app.bundleIdentifier ?? "—"))")
 
-// Chromium and Electron build their full accessibility tree only when asked.
-// Without this, web content can report a focused element with no value.
+// Chromium and Electron build their full accessibility tree only when asked:
+// Electron answers to AXManualAccessibility, Chrome to AXEnhancedUserInterface.
+// Chrome then builds the tree asynchronously, so the first lookups can come back
+// empty while it does.
 let appElement = AXUIElementCreateApplication(app.processIdentifier)
 let manual = AXUIElementSetAttributeValue(appElement, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-print("AXManualAccessibility: \(manual == .success ? "enabled" : "not supported (\(manual.rawValue))")")
+print("AXManualAccessibility:   \(manual == .success ? "enabled" : "unsupported (\(manual.rawValue))")")
 
-guard let field = focusedElement() else {
-    print("\n[1] RESULT: no focused element — corrections cannot be captured here.")
+// Enhanced mode is a global switch on the app, and some window managers animate
+// differently under it — so it is put back exactly as found when the probe ends.
+let enhancedBefore = attr(appElement, "AXEnhancedUserInterface") as? Bool
+let enhanced = AXUIElementSetAttributeValue(appElement, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+print("AXEnhancedUserInterface: \(enhanced == .success ? "enabled (was \(enhancedBefore.map(String.init) ?? "unset"))" : "unsupported (\(enhanced.rawValue))")")
+func restoreEnhanced() {
+    guard enhanced == .success else { return }
+    AXUIElementSetAttributeValue(
+        appElement, "AXEnhancedUserInterface" as CFString,
+        (enhancedBefore ?? false) ? kCFBooleanTrue : kCFBooleanFalse
+    )
+}
+signal(SIGINT) { _ in restoreEnhanced(); exit(0) }
+
+/// Asks the app before the system: the system-wide query is the one Chrome
+/// most often leaves unanswered.
+func focusedField() -> (AXUIElement, String)? {
+    if let value = attr(appElement, "AXFocusedUIElement"), CFGetTypeID(value) == AXUIElementGetTypeID() {
+        return (value as! AXUIElement, "app")
+    }
+    if let element = focusedElement() { return (element, "system-wide") }
+    return nil
+}
+
+var found: (AXUIElement, String)?
+for attempt in 1...10 {
+    found = focusedField()
+    if found != nil {
+        if attempt > 1 { print("Focused element appeared after \(attempt) tries") }
+        break
+    }
+    Thread.sleep(forTimeInterval: 0.3)
+}
+guard let (field, source) = found else {
+    print("\n[1] RESULT: no focused element, even after enabling accessibility — corrections cannot be captured here.")
+    restoreEnhanced()
     exit(0)
 }
+print("Focused element via: \(source)")
 print("Focused role: \(role(of: field))")
 
 // MARK: 1. Readable
@@ -108,6 +145,7 @@ guard let baseline = text(of: field) else {
     AXUIElementCopyAttributeNames(field, &names)
     print("    RESULT: no readable AXValue. Attributes offered:")
     print("    \((names as? [String] ?? []).joined(separator: ", "))")
+    restoreEnhanced()
     exit(0)
 }
 let words = baseline.split(whereSeparator: \.isWhitespace).count
@@ -177,3 +215,4 @@ if lastSeen == baseline {
 } else {
     print("    RESULT: works, by polling only.")
 }
+restoreEnhanced()
