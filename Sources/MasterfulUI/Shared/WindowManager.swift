@@ -13,7 +13,7 @@ public final class WindowManager {
     public static let shared = WindowManager()
 
     public enum WindowID: String, Hashable, Sendable {
-        case onboarding, settings, history
+        case onboarding, settings, main
     }
 
     private var windows: [WindowID: NSWindow] = [:]
@@ -24,6 +24,8 @@ public final class WindowManager {
         title: String,
         size: CGSize,
         resizable: Bool = true,
+        minimumSize: CGSize? = nil,
+        bridgesToolbar: Bool = false,
         @ViewBuilder content: () -> Content
     ) {
         if let existing = windows[id] {
@@ -44,7 +46,15 @@ public final class WindowManager {
         window.title = title
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: content())
+        let hosting = NSHostingView(rootView: content())
+        // A window built by hand gets no toolbar from SwiftUI unless asked, and
+        // without one a sidebar toggle or a search field has nowhere to go.
+        if bridgesToolbar {
+            hosting.sceneBridgingOptions = [.toolbars, .title]
+            window.toolbarStyle = .unified
+        }
+        window.contentView = hosting
+        if let minimumSize { window.contentMinSize = minimumSize }
         window.center()
 
         // Without this the window is retained only by AppKit's ordering, and

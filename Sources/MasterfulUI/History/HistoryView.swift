@@ -13,23 +13,29 @@ public struct HistoryView: View {
         self.services = services
     }
 
+    /// A page of the main window: the list and the dictation side by side,
+    /// rather than a split view of its own nested inside the window's.
     public var body: some View {
-        NavigationSplitView {
+        HSplitView {
             list
-                .navigationSplitViewColumnWidth(min: 260, ideal: 300)
-        } detail: {
-            if let selection {
-                detail(for: selection)
-            } else {
-                ContentUnavailableView(
-                    "Nothing selected",
-                    systemImage: "text.quote",
-                    description: Text("Pick a dictation to see what was said and where it went.")
-                )
+                .frame(minWidth: 240, idealWidth: 290, maxWidth: 420)
+            Group {
+                if let selection {
+                    detail(for: selection)
+                } else {
+                    ContentUnavailableView(
+                        "Nothing selected",
+                        systemImage: "text.quote",
+                        description: Text("Pick a dictation to see what was said and where it went.")
+                    )
+                }
             }
+            .frame(minWidth: 340, maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppSurface.background)
         }
-        .searchable(text: $query, prompt: "Search transcripts")
+        .searchable(text: $query, placement: .toolbar, prompt: "Search transcripts")
         .onChange(of: query) { _, _ in reload() }
+        .onChange(of: services.historyStore.revision) { _, _ in reload() }
         .onAppear(perform: reload)
     }
 
@@ -119,6 +125,8 @@ public struct HistoryView: View {
                     }
                 }
 
+                corrections(for: record)
+
                 Card {
                     SectionHeader("Details")
                     detailRow("When", record.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -129,11 +137,34 @@ public struct HistoryView: View {
                     }
                     detailRow("Engine", record.engineName)
                     detailRow("Destination", record.wentToClipboard ? "Clipboard" : "Text field")
+                    detailRow("Fixes", record.correctionsWatched
+                        ? "Followed"
+                        : (record.wentToClipboard ? "Not followed (clipboard)" : "Not followed"))
                 }
             }
             .padding(Token.Space.xl)
         }
         .background(AppSurface.background)
+    }
+
+    /// What you fixed after this one landed — or why nothing is shown.
+    @ViewBuilder
+    private func corrections(for record: DictationRecord) -> some View {
+        let edits = services.historyStore.corrections(for: record)
+        if !edits.isEmpty {
+            Card {
+                SectionHeader("Your fixes", subtitle: "Changes you made in the field after it landed.")
+                ForEach(edits, id: \.persistentModelID) { edit in
+                    HStack {
+                        CorrectionPair(heard: edit.heard, written: edit.written)
+                        Spacer()
+                        Text(edit.kind.displayName)
+                            .font(Typeface.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
     }
 
     private func detailRow(_ label: String, _ value: String) -> some View {

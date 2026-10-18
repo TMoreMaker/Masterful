@@ -34,11 +34,7 @@ struct HistorySettingsTab: View {
                         .font(Typeface.secondary)
                         .foregroundStyle(.secondary)
                 }
-                Button("Open history") {
-                    WindowManager.shared.show(
-                        .history, title: "History", size: CGSize(width: 620, height: 560)
-                    ) { HistoryView(services: services) }
-                }
+                Button("Open History") { services.onShowMain(.history) }
                 .padding(.top, Token.Space.xxs)
             }
 

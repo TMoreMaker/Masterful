@@ -32,9 +32,11 @@ struct MenuBarContent: View {
 
             Divider()
 
+            Button("Open Masterful") { environment.showMain() }
+                .keyboardShortcut("o")
+            Button("History") { environment.showMain(.history) }
             Button("Settings…") { environment.showSettings() }
                 .keyboardShortcut(",")
-            Button("History…") { environment.showHistory() }
             Button("Run Setup Again…") { environment.showOnboarding() }
 
             Divider()

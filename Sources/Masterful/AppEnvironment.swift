@@ -95,6 +95,9 @@ public final class AppEnvironment {
             Task { await self?.coordinator.retryAfterPermissionChange() }
         }
 
+        services.onShowMain = { [weak self] section in
+            self?.showMain(section)
+        }
         services.onQuit = { [weak self] in
             self?.coordinator.shutdown()
             NSApplication.shared.terminate(nil)
@@ -168,13 +171,17 @@ public final class AppEnvironment {
         }
     }
 
-    public func showHistory() {
+    /// The main window, open on `section`.
+    public func showMain(_ section: MainSection = .overview) {
+        services.mainSection = section
         WindowManager.shared.show(
-            .history,
-            title: "History",
-            size: CGSize(width: 720, height: 560)
+            .main,
+            title: "Masterful",
+            size: CGSize(width: 940, height: 620),
+            minimumSize: CGSize(width: 760, height: 520),
+            bridgesToolbar: true
         ) { [services] in
-            HistoryView(services: services)
+            MainWindowView(services: services)
         }
     }
 }

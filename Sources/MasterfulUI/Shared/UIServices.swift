@@ -30,6 +30,9 @@ public final class UIServices {
     public let historyStore: HistoryStore
 
     public var permissions = PermissionSnapshot()
+    /// Which page the main window shows. Held here so the menu bar can open the
+    /// window straight onto History.
+    public var mainSection: MainSection = .overview
     /// Live input level, so onboarding can show the microphone working before
     /// asking the user to trust it with a sentence.
     public var inputLevel: AudioLevel = .silence
@@ -46,6 +49,9 @@ public final class UIServices {
     public var onStopMicTest: () -> Void = {}
     public var onFinishOnboarding: () -> Void = {}
     public var onQuit: () -> Void = {}
+    /// Opens the main window on a page. A closure, because the window is built
+    /// by the composition root, which this layer must not depend on.
+    public var onShowMain: (MainSection) -> Void = { _ in }
 
     public init(settingsStore: SettingsStore, historyStore: HistoryStore) {
         self.settingsStore = settingsStore
