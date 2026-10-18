@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import MasterfulKit
 import Speech
 
 /// Runs a recorded file through one locale's model.
@@ -81,10 +82,9 @@ enum FileTranscriber {
         let collected = Task {
             var text = ""
             for try await result in transcriber.results where result.isFinal {
-                let fragment = String(result.text.characters)
-                    .trimmingCharacters(in: .whitespaces)
-                guard !fragment.isEmpty else { continue }
-                text = text.isEmpty ? fragment : text + " " + fragment
+                // The production joiner, so the eval scores the transcript the
+                // app would actually have produced.
+                text = SegmentJoiner.join(text, String(result.text.characters))
             }
             return text
         }

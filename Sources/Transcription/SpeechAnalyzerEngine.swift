@@ -30,6 +30,9 @@ public actor SpeechAnalyzerEngine: TranscriptionEngine {
     /// rather than flickering between guesses.
     private var finalizedText: String = ""
 
+    /// The session's terms, so a segment that opens with one keeps its casing.
+    private var vocabulary: [String] = []
+
     public init() {}
 
     // MARK: - Preparation
@@ -100,6 +103,7 @@ public actor SpeechAnalyzerEngine: TranscriptionEngine {
         let transcriber = Self.makeTranscriber(locale: locale)
         self.transcriber = transcriber
         self.finalizedText = ""
+        self.vocabulary = vocabulary
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         self.analyzer = analyzer
@@ -190,21 +194,15 @@ public actor SpeechAnalyzerEngine: TranscriptionEngine {
     private func absorb(_ result: SpeechTranscriber.Result) -> TranscriptionUpdate {
         let fragment = String(result.text.characters)
         if result.isFinal {
-            finalizedText = Self.join(finalizedText, fragment)
+            finalizedText = SegmentJoiner.join(finalizedText, fragment, vocabulary: vocabulary)
             return TranscriptionUpdate(text: finalizedText, isFinal: false)
         }
         // Volatile: shown but not committed, so the next volatile result
         // replaces it instead of stacking.
-        return TranscriptionUpdate(text: Self.join(finalizedText, fragment), isFinal: false)
-    }
-
-    /// Recogniser fragments arrive with their own leading spacing conventions;
-    /// normalise rather than trusting them.
-    private static func join(_ lhs: String, _ rhs: String) -> String {
-        let right = rhs.trimmingCharacters(in: .whitespaces)
-        guard !right.isEmpty else { return lhs }
-        guard !lhs.isEmpty else { return right }
-        return lhs + " " + right
+        return TranscriptionUpdate(
+            text: SegmentJoiner.join(finalizedText, fragment, vocabulary: vocabulary),
+            isFinal: false
+        )
     }
 
     private func teardown() async {
@@ -218,5 +216,6 @@ public actor SpeechAnalyzerEngine: TranscriptionEngine {
         analyzer = nil
         transcriber = nil
         finalizedText = ""
+        vocabulary = []
     }
 }
