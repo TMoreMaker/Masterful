@@ -42,6 +42,11 @@ struct VocabularySettingsTab: View {
                         HStack {
                             Text(term.term).font(Typeface.rowTitle)
                             Spacer()
+                            if term.isAutomatic {
+                                Text("Learned from a fix")
+                                    .font(Typeface.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                             Button {
                                 services.historyStore.removeVocabulary(term)
                                 reload()

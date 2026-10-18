@@ -454,6 +454,34 @@ public final class DictationCoordinator {
         }
     }
 
+    /// Learns names and jargon, not the ordinary words in between.
+    ///
+    /// The spellchecker alone is not enough: it counts everyone in Contacts as
+    /// a known word, and those are exactly the names a user dictates. So a
+    /// capitalised word must also appear in the plain English word list to be
+    /// treated as ordinary — "Lerato" fails that, "Sarah" passes, and neither
+    /// "the" nor "page" is capitalised mid-fix to begin with.
+    private static let learner = VocabularyLearner { word in
+        MainActor.assumeIsolated {
+            if let first = word.first, first.isUppercase, !englishWords.contains(word.lowercased()) {
+                return false
+            }
+            let checker = NSSpellChecker.shared
+            if checker.hasLearnedWord(word) { return false }
+            let miss = checker.checkSpelling(
+                of: word, startingAt: 0, language: "en", wrap: false,
+                inSpellDocumentWithTag: 0, wordCount: nil
+            )
+            return miss.location == NSNotFound
+        }
+    }
+
+    /// Webster's list, which ships with macOS. Loaded once, on the first fix.
+    private nonisolated static let englishWords: Set<String> = {
+        let list = (try? String(contentsOfFile: "/usr/share/dict/words", encoding: .utf8)) ?? ""
+        return Set(list.split(separator: "\n").map { $0.lowercased() })
+    }()
+
     /// "Return", or "Select all, then Copy".
     private nonisolated static func summarise(_ segments: [TranscriptSegment]) -> String {
         let names = segments.compactMap { segment -> String? in
@@ -516,7 +544,15 @@ public final class DictationCoordinator {
             // field at all.
             if let record, commandNames.isEmpty, destination == .focusedField, !insertedText.isEmpty {
                 self.corrections.begin(inserted: insertedText) { [weak self] result in
-                    self?.historyStore.recordCorrections(result, for: record)
+                    guard let self else { return }
+                    self.historyStore.recordCorrections(result, for: record)
+                    // A name you had to fix is taught to the recogniser, so the
+                    // next dictation is primed for it rather than repeating it.
+                    for term in Self.learner.terms(from: result?.edits ?? []) {
+                        if self.historyStore.addVocabulary(term, isAutomatic: true) {
+                            Log.lifecycle.info("Learned \(term, privacy: .private) from a correction")
+                        }
+                    }
                 }
             }
             self.apply(.delivered(Delivery(

@@ -10,6 +10,8 @@ struct CorrectionsPage: View {
     @State private var kind: CorrectionKind = .word
     @State private var rows: [RecurringCorrection] = []
     @State private var selection: Set<RecurringCorrection.ID> = []
+    /// Lowercased, so a row can say its word is already being taught.
+    @State private var vocabulary: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: Token.Space.lg) {
@@ -33,7 +35,15 @@ struct CorrectionsPage: View {
                             .foregroundStyle(.secondary)
                     }
                     TableColumn("You changed it to") { row in
-                        Text(row.written.isEmpty ? "(deleted)" : row.written)
+                        HStack(spacing: Token.Space.xs) {
+                            Text(row.written.isEmpty ? "(deleted)" : row.written)
+                            if vocabulary.contains(row.written.lowercased()) {
+                                Image(systemName: "character.book.closed")
+                                    .foregroundStyle(.secondary)
+                                    .help("In your vocabulary, so the recogniser is listening for it")
+                                    .accessibilityLabel("In vocabulary")
+                            }
+                        }
                     }
                     TableColumn("Times") { row in
                         Text(row.count.formatted()).monospacedDigit()
@@ -86,7 +96,8 @@ struct CorrectionsPage: View {
 
     @ViewBuilder
     private func menu(for selected: [RecurringCorrection]) -> some View {
-        if selected.count == 1, let row = selected.first, row.kind == .word, !row.written.isEmpty {
+        if selected.count == 1, let row = selected.first, row.kind == .word, !row.written.isEmpty,
+           !vocabulary.contains(row.written.lowercased()) {
             Button("Add “\(row.written)” to Vocabulary") {
                 services.historyStore.addVocabulary(row.written)
             }
@@ -105,6 +116,7 @@ struct CorrectionsPage: View {
 
     private func reload() {
         rows = services.historyStore.recurringCorrections(kind: kind)
+        vocabulary = Set(services.historyStore.vocabularyStrings().map { $0.lowercased() })
         selection = selection.filter { id in rows.contains { $0.id == id } }
     }
 }
