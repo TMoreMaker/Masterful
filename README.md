@@ -158,6 +158,24 @@ avoid.
 
 ---
 
+## A pause is not a new sentence
+
+The recogniser does not hand over one transcript. It closes a segment every time
+you stop to think, and writes each segment as though it were a sentence of its
+own — so the word after a pause comes back capitalised whether a sentence started
+there or not. Glued together with a space, a moment's thought became *"mostly
+adhered to, however, **The** request was…"* in the middle of someone's answer.
+
+`SegmentJoiner` mends it at the boundary, the one place it is known to be an
+artefact: when the text before a pause left the sentence open, the capital after
+it is lowered. Capitals that mean something survive — *I*, acronyms like *UI*,
+weekdays, your vocabulary, and anything the recogniser had already capitalised
+mid-sentence, which is its way of saying *this is a name*. Punctuation is left
+exactly as the recogniser placed it: a full stop at a pause is sometimes wrong,
+but nothing at the boundary says which, and guessing would be writing.
+
+---
+
 ## It can press keys, not just type words
 
 Dictation that can only produce text cannot submit a form, clear a field, or
@@ -232,6 +250,71 @@ database the single most sensitive file on the machine, and nothing the app does
 needs them once the transcript exists. The store is explicitly local — no
 CloudKit — and the API key for the optional cloud mode lives in the Keychain
 rather than in the settings file.
+
+---
+
+## It learns from the words you fix
+
+![The island reading “Learned” on one side of the camera and “Thando” on the
+other](docs/island/learned.png)
+
+The fixes you make straight after dictating are the only honest measure of
+recognition there is: you were going to make them anyway, and each one names
+exactly which word was wrong. So after a dictation lands, Masterful follows that
+field — reading it, never writing to it, and never at all in a password field —
+and when your typing pauses, it works out what you changed.
+
+Every fix is one of three things, and only one of them is the recogniser's fault:
+
+| You changed | It is filed as | Counts against recognition |
+|---|---|---|
+| *paint* → *page* | a misheard word | Yes |
+| *functional. With* → *functional, with* | punctuation | Separately |
+| most of a sentence | a rewrite | No — changing your mind is not an error |
+
+Edits elsewhere in the field, and typing on after the dictation, are ignored. A
+fix is saved once your typing settles for a couple of seconds, so nothing waits on
+you clicking away; type *"Th"*, pause, then finish *"Thando"*, and the record ends
+with one fix, not two.
+
+**A name you fix is taught to the recogniser.** When the corrected word is one the
+dictionary does not know — a name, a product, a place — it goes into your
+vocabulary, which primes the next dictation for it, and the island says so for
+two seconds. Ordinary words are left out on purpose: priming the recogniser for
+*"the"* helps nothing and dilutes the hint the real names get. The dictionary
+check needs two halves, because macOS's spellchecker counts everyone in Contacts
+as a known word — exactly the names you dictate — so a capitalised word must also
+appear in the plain English word list to be treated as ordinary.
+
+The probe that made this safe to build ships with it: `make
+probe-corrections-auto` opens a page in Chrome, edits a word with real keystrokes
+and reports what Masterful saw, because Chromium is precisely where the
+Accessibility API is least trustworthy.
+
+---
+
+## A window for what it has learned
+
+![Masterful's main window, on sample data: misheard words per hundred this week
+against last, an eight-week bar chart, and the most frequent fixes](docs/window/overview.png)
+
+<div align="center"><sub>Rendered over sample history by <code>make window-preview</code>,
+never from a real one.</sub></div>
+
+Opened from the menu bar, and still with no Dock icon. **Overview** puts misheard
+words per hundred this week against last — with the direction written out, never
+colour alone — over an eight-week chart in which the current week is drawn as
+provisional, because it is. **History** shows each dictation beside what was heard
+and what you changed. **Corrections** groups the fixes you keep making, with
+*Add to Vocabulary* one click away and *Not a Mishearing* for the ones that were
+really you changing your mind, which takes them out of every figure built on them.
+
+Rates are taken only over dictations Masterful could follow. One that went to the
+clipboard had no fixes *seen*, not none made, and counting it as perfect would
+make the chart flatter than the truth.
+
+Settings stays its own window. On a Mac, preferences are a place you visit, not a
+page among the content.
 
 ---
 
@@ -370,6 +453,15 @@ read passages the harness could not separate `en_GB` from `en_ZA` at all. Readin
 aloud flattens the things that distinguish a speaker, so the stimulus — not the
 tooling — is what needs replacing.
 
+**`make compare-engines` — the replacement stimulus.** A local page records an
+answer spoken the way you actually talk, pauses and all, and shows what each
+recogniser made of it side by side, with every differing word and every
+punctuation change marked. Everything runs on the machine, and the recordings are
+kept out of the repository — they are a person's voice. It also earned its place
+on day one by catching the browser recording pure silence, which macOS hands
+Chrome instead of an error when microphone access is missing; the page now says
+so within two seconds rather than after a whole answer.
+
 **`OSSignposter` — latency.** Six stages, each with a budget enforced in code,
 documented in a table [generated from those same constants](docs/latency.md). An
 earlier version of that page named six intervals before any of them existed,
@@ -405,6 +497,10 @@ System Settings → Keyboard → *Press 🌐 to* → **Do Nothing**.
 | `make icon` | Regenerate the app icon |
 | `make reset-permissions` | Forget TCC grants, to re-test first run |
 | `make probe` | Diagnose why text isn't appearing in a specific app |
+| `make probe-corrections` | Check that edits made after a dictation are visible |
+| `make probe-corrections-auto` | The same, unattended, against a test page in Chrome |
+| `make window-preview` | Open the main window over sample history (`PAGE=overview\|history\|corrections`) |
+| `make compare-engines` | Record an answer and compare recognisers on it, side by side |
 | `make probe-mouse` | Show what your keyboard and mouse actually emit |
 | `make eval` | Measure clean-up quality and latency across every mode |
 | `make record` | Read the recogniser's test passages aloud, once |
@@ -446,9 +542,10 @@ InputControl    CGEventTap, shortcut model, hold/double-tap resolution.
 AudioCapture    AVAudioEngine, format conversion, device hot-swap, level metering.
 Transcription   TranscriptionEngine protocol; SpeechAnalyzer implementation.
 Refinement      Speech→text ladder: rules → on-device model → optional cloud, all guarded.
-TextInsertion   Accessibility / paste / typing strategies, secure-input refusal.
-Persistence     SwiftData history, stats and custom vocabulary.
-MasterfulUI     Design tokens, motion system, HUD, onboarding, settings, history.
+TextInsertion   Accessibility / paste / typing strategies, secure-input refusal,
+                and the watcher that follows a field for fixes.
+Persistence     SwiftData history, corrections, weekly figures and vocabulary.
+MasterfulUI     Design tokens, motion system, HUD, onboarding, settings, main window.
 Masterful       Composition root and menu bar.
 ```
 

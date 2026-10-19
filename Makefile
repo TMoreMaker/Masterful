@@ -108,7 +108,10 @@ shots:
 	echo "   docs/island/clipboard.png" && \
 	magick 06-blocked.png -crop 1120x268+0+0 +repage \
 		../../docs/island/refusal.png && \
-	echo "   docs/island/refusal.png"
+	echo "   docs/island/refusal.png" && \
+	magick 09-learned.png -crop 1120x112+0+0 +repage \
+		../../docs/island/learned.png && \
+	echo "   docs/island/learned.png"
 
 ## Render what a VoiceOver user hears into docs/audio, through the same system
 ## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,
