@@ -18,6 +18,12 @@ let package = Package(
         // hears this speaker, replayed from one fixed recording.
         .executable(name: "masterful-asr-eval", targets: ["ASREvalTool"]),
     ],
+    dependencies: [
+        // Whisper on Core ML, for Mercor mode: a recogniser that hears the whole
+        // answer before punctuating it and takes the user's names as a prompt.
+        // Pinned exactly — a speech model's behaviour is the product.
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "1.1.1"),
+    ],
     targets: [
         // Pure domain. No AVFoundation, no AppKit, no I/O. Fully deterministic.
         .target(name: "MasterfulKit"),
@@ -28,10 +34,17 @@ let package = Package(
         // Microphone capture, format conversion, device hot-swap, level metering.
         .target(name: "AudioCapture", dependencies: ["MasterfulKit"]),
 
-        // Speech-to-text behind a protocol. SpeechAnalyzer today, Parakeet later.
+        // Speech-to-text behind a protocol: Apple's SpeechAnalyzer by default,
+        // Whisper in Mercor mode.
         // Depends on AudioCapture for the buffer transport type: transcription
         // consumes captured audio, so the edge points the right way.
-        .target(name: "Transcription", dependencies: ["MasterfulKit", "AudioCapture"]),
+        .target(
+            name: "Transcription",
+            dependencies: [
+                "MasterfulKit", "AudioCapture",
+                .product(name: "WhisperKit", package: "WhisperKit"),
+            ]
+        ),
 
         // Transcript clean-up. Deterministic rules now, Foundation Models in M3.
         .target(name: "Refinement", dependencies: ["MasterfulKit"]),
@@ -82,6 +95,7 @@ let package = Package(
         .testTarget(name: "MasterfulUITests", dependencies: ["MasterfulUI"]),
         .testTarget(name: "PersistenceTests", dependencies: ["Persistence"]),
         .testTarget(name: "TextInsertionTests", dependencies: ["TextInsertion"]),
+        .testTarget(name: "TranscriptionTests", dependencies: ["Transcription", "AudioCapture"]),
     ],
     swiftLanguageModes: [.v6]
 )

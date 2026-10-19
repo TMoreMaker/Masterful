@@ -31,6 +31,20 @@ public final class DictationCoordinator {
         case failed(String)
     }
 
+    /// Where Whisper is, for Mercor mode. Apple's recogniser stands in until
+    /// it is `.ready`, so turning the mode on never leaves the user unable to
+    /// dictate while a model downloads.
+    public enum WhisperStatus: Equatable {
+        case off
+        case downloading(Double)
+        /// Loading, and on the very first run compiling for the Neural Engine.
+        case loading
+        case ready
+        case failed(String)
+    }
+
+    public private(set) var whisperStatus: WhisperStatus = .off
+
     public private(set) var readiness: Readiness = .starting
     public private(set) var phase: DictationPhase = .idle
     public private(set) var hotkeyActive = false
@@ -50,6 +64,11 @@ public final class DictationCoordinator {
     private let capture = AudioCaptureEngine()
     private let ducker = OutputDucker()
     private let transcriber: any TranscriptionEngine
+    /// Mercor mode's recogniser. Loaded only while the mode is on.
+    private let whisper = WhisperEngine()
+    /// The recogniser for the dictation in flight, chosen when it starts, so
+    /// toggling the mode mid-sentence cannot split one answer across two.
+    private var activeEngine: any TranscriptionEngine
     /// Follows the field after each dictation, so the fixes you make are logged.
     private let corrections = CorrectionWatcher()
 
@@ -75,6 +94,7 @@ public final class DictationCoordinator {
         self.settingsStore = settingsStore
         self.historyStore = historyStore
         self.transcriber = transcriber
+        self.activeEngine = transcriber
         self.hud = HUDController(anchor: settingsStore.settings.hudAnchor)
         self.hotkeys = HotkeyEngine(settings: settingsStore.settings)
         self.hotkeys.onIntent = { [weak self] intent in
@@ -138,6 +158,8 @@ public final class DictationCoordinator {
             return
         }
 
+        if settings.mercorMode { loadWhisper() }
+
         hotkeyActive = hotkeys.start()
         readiness = hotkeyActive ? .ready : .needsAccessibility
         historyStore.pruneRecords(olderThan: settings.historyRetentionDays)
@@ -151,6 +173,53 @@ public final class DictationCoordinator {
     /// Stands the hotkey engine down while a new binding is being recorded.
     public func setHotkeyRecording(_ isRecording: Bool) {
         hotkeys.setRecording(isRecording)
+    }
+
+    // MARK: - Mercor mode
+
+    /// Mercor mode is on *and* Whisper is ready to take the next dictation.
+    public var isUsingWhisper: Bool { settings.mercorMode && whisperStatus == .ready }
+
+    public func setMercorMode(_ on: Bool) {
+        settingsStore.update { $0.mercorMode = on }
+        if on {
+            loadWhisper()
+        } else {
+            whisperStatus = .off
+            Task { [whisper] in await whisper.unload() }
+        }
+    }
+
+    private func loadWhisper() {
+        switch whisperStatus {
+        case .ready, .loading, .downloading: return
+        case .off, .failed: break
+        }
+        whisperStatus = WhisperEngine.isDownloaded ? .loading : .downloading(0)
+        let progress: @Sendable (Double) -> Void = { [weak self] fraction in
+            Task { @MainActor in self?.reportWhisperDownload(fraction) }
+        }
+        Task { @MainActor [weak self, whisper] in
+            do {
+                try await whisper.load(progress: progress)
+                guard let self, self.settings.mercorMode else { await whisper.unload(); return }
+                self.whisperStatus = .ready
+            } catch {
+                Log.transcription.error("Whisper failed to load: \(error.localizedDescription, privacy: .public)")
+                self?.whisperStatus = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func reportWhisperDownload(_ fraction: Double) {
+        guard case .downloading = whisperStatus else { return }
+        whisperStatus = fraction < 1 ? .downloading(fraction) : .loading
+    }
+
+    /// What clean-up may do right now. Mercor mode overrides the setting: no
+    /// language model rewords an answer while it is on.
+    private var effectiveRefinement: RefinementMode {
+        settings.mercorMode ? .rules : settings.refinement
     }
 
     public func applySettingsChange() {
@@ -302,9 +371,9 @@ public final class DictationCoordinator {
             // the rest exist to say which part of it went wrong.
             trace.begin(.transcribeFinalize)
             trace.begin(.sessionTotal)
-            Task { [transcriber] in
+            Task { [activeEngine] in
                 do {
-                    try await transcriber.finish()
+                    try await activeEngine.finish()
                 } catch {
                     Log.transcription.error("Finalise failed: \(error.localizedDescription, privacy: .public)")
                 }
@@ -314,7 +383,7 @@ public final class DictationCoordinator {
             sessionTask?.cancel()
             audioPumpTask?.cancel()
             levelPumpTask?.cancel()
-            Task { [transcriber] in await transcriber.cancel() }
+            Task { [activeEngine] in await activeEngine.cancel() }
 
         case .refine(let text):
             lastRawTranscript = text
@@ -349,7 +418,7 @@ public final class DictationCoordinator {
         // Warm the model while the user is still talking. This is free latency:
         // weight loading costs the better part of a second cold, and we have the
         // whole utterance to hide it in.
-        if settings.refinement == .onDevice {
+        if effectiveRefinement == .onDevice {
             let profile = settings.profile(
                 forBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
             )
@@ -357,16 +426,18 @@ public final class DictationCoordinator {
         }
 
         let vocabulary = effectiveVocabulary
+        activeEngine = isUsingWhisper ? whisper : transcriber
+        hud.model.isMercorMode = isUsingWhisper
 
         sessionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 // Order matters: the recogniser must be accepting input before
                 // the first buffer arrives, or the opening syllable is dropped.
-                let updates = try await self.transcriber.beginSession(vocabulary: vocabulary)
+                let updates = try await self.activeEngine.beginSession(vocabulary: vocabulary)
                 let streams = try self.capture.start()
 
-                self.audioPumpTask = Task.detached { [weak self, transcriber = self.transcriber] in
+                self.audioPumpTask = Task.detached { [weak self, transcriber = self.activeEngine] in
                     var isFirstBuffer = true
                     for await chunk in streams.audio {
                         if isFirstBuffer {
@@ -425,7 +496,7 @@ public final class DictationCoordinator {
             profile: profile
         )
         let refiner = RefinerFactory.make(
-            mode: settings.refinement,
+            mode: effectiveRefinement,
             profile: profile,
             provider: settings.remoteProvider
         )
@@ -587,8 +658,8 @@ public final class DictationCoordinator {
             speechDuration: lastSpeechDuration,
             applicationBundleID: bundleID,
             applicationName: appName,
-            engineName: transcriber.displayName,
-            refinementMode: settings.refinement,
+            engineName: activeEngine.displayName,
+            refinementMode: effectiveRefinement,
             destination: destination
         )
     }

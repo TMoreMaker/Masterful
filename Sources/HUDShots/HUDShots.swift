@@ -59,6 +59,7 @@ enum HUDShots {
         /// False renders the island at rest, collapsed inside the notch.
         var presented: Bool = true
         var notice: IslandNotice?
+        var mercorMode = false
     }
 
     static let shots: [Shot] = [
@@ -67,6 +68,9 @@ enum HUDShots {
               presented: false),
         .init(name: "01-listening", phase: .listening(.pushToTalk),
               caption: "Listening — push to talk", levels: levels),
+        .init(name: "01-listening-mercor", phase: .listening(.pushToTalk),
+              caption: "Listening in Mercor mode — Whisper will write this one", levels: levels,
+              mercorMode: true),
         .init(name: "02-latched", phase: .listening(.latched),
               caption: "Listening — latched on", levels: levels),
         .init(name: "03-transcribing", phase: .transcribing,
@@ -125,7 +129,8 @@ enum HUDShots {
 
     static func render(_ shot: Shot, metrics: HUDMetrics, into directory: URL) {
         let model = HUDModel.posed(
-            phase: shot.phase, levels: shot.levels, presented: shot.presented, notice: shot.notice
+            phase: shot.phase, levels: shot.levels, presented: shot.presented, notice: shot.notice,
+            mercorMode: shot.mercorMode
         )
 
         let scene = ZStack(alignment: .top) {

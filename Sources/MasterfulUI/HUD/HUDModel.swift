@@ -77,6 +77,10 @@ public enum IslandNotice: Equatable, Sendable {
 public final class HUDModel {
     public var phase: DictationPhase = .idle
     public var transcript: String = ""
+    /// Mercor mode is taking this dictation, so the island says so while it
+    /// listens: which engine is writing an answer down is not something to
+    /// have to remember.
+    public var isMercorMode = false
     /// Drawn only while `phase` is `.idle`. Owned by `HUDController`.
     public internal(set) var notice: IslandNotice?
     public internal(set) var isPresented: Bool = false
@@ -103,9 +107,11 @@ public final class HUDModel {
         coalescence: Double? = nil,
         clock: TimeInterval? = nil,
         presented: Bool = true,
-        notice: IslandNotice? = nil
+        notice: IslandNotice? = nil,
+        mercorMode: Bool = false
     ) -> HUDModel {
         let model = HUDModel()
+        model.isMercorMode = mercorMode
         model.phase = phase
         model.notice = notice
         // `false` poses the island at rest — collapsed to exactly the notch,

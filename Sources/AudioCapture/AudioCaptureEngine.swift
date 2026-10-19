@@ -371,11 +371,11 @@ private extension Duration {
 /// Safe despite the unchecked conformance because the converter calls its input
 /// block synchronously, on the thread that called `convert`, and the buffer is
 /// released after the first read.
-private final class SingleUseBuffer: @unchecked Sendable {
+public final class SingleUseBuffer: @unchecked Sendable {
     private var buffer: AVAudioPCMBuffer?
-    init(_ buffer: AVAudioPCMBuffer) { self.buffer = buffer }
+    public init(_ buffer: AVAudioPCMBuffer) { self.buffer = buffer }
 
-    func take() -> AVAudioPCMBuffer? {
+    public func take() -> AVAudioPCMBuffer? {
         defer { buffer = nil }
         return buffer
     }
