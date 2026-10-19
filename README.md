@@ -270,14 +270,14 @@ to, so it needs no focus at all. **Two per dictation, not six.**
 
 | State | What it says | Listen |
 |---|---|---|
-| Listening | "Listening" | [0:01](docs/audio/01-listening.m4a) |
-| Latched | "Listening continuously. Press again to stop." | [0:03](docs/audio/02-latched.m4a) |
+| Listening | "Listening" | [0:01](docs/audio/01-listening.mp4) |
+| Latched | "Listening continuously. Press again to stop." | [0:03](docs/audio/02-latched.mp4) |
 | Transcribing | *silent, by design* | — |
-| Inserted | "9 words inserted" | [0:01](docs/audio/04-delivered.m4a) |
-| Left on the clipboard | "18 words copied to the clipboard. Press Command V to paste." | [0:04](docs/audio/05-delivered-clipboard.m4a) |
-| Refused | "Password field — not listening. macOS hides keystrokes here…" | [0:06](docs/audio/06-blocked.m4a) |
-| Nothing heard | "Didn't catch that. Hold the key, speak, then let go." | [0:04](docs/audio/07-failed.m4a) |
-| No microphone | "Microphone access needed. Allow it in System Settings, then…" | [0:07](docs/audio/08-failed-permission.m4a) |
+| Inserted | "9 words inserted" | [0:01](docs/audio/04-delivered.mp4) |
+| Left on the clipboard | "18 words copied to the clipboard. Press Command V to paste." | [0:04](docs/audio/05-delivered-clipboard.mp4) |
+| Refused | "Password field — not listening. macOS hides keystrokes here…" | [0:06](docs/audio/06-blocked.mp4) |
+| Nothing heard | "Didn't catch that. Hold the key, speak, then let go." | [0:04](docs/audio/07-failed.mp4) |
+| No microphone | "Microphone access needed. Allow it in System Settings, then…" | [0:07](docs/audio/08-failed-permission.mp4) |
 
 Starting and the outcome are spoken; transcribing, refining and inserting are
 not. Those pass in well under two seconds, and narrating each would turn a

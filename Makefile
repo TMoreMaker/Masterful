@@ -114,13 +114,28 @@ shots:
 ## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,
 ## not from a script typed here, so a recording cannot drift from the app.
 ## Override the voice with VOICE="Samantha".
+## Each clip is the spoken line over the still of the state it belongs to, so
+## the README player shows what a sighted user sees at the moment those words
+## are heard. Needs ffmpeg; without it the clips are written as audio only.
 VOICE ?= Daniel
+BACKDROP ?= 0x3A3A3C
 voice: shots
-	@mkdir -p docs/audio
+	@mkdir -p docs/audio $(DIST_DIR)/voice
 	@while IFS=$$'\t' read -r name text; do \
-		say -v "$(VOICE)" -o "docs/audio/$$name.m4a" --data-format=aac "$$text" && \
-		echo "   docs/audio/$$name.m4a  —  $$text"; \
+		say -v "$(VOICE)" -o "$(DIST_DIR)/voice/$$name.m4a" --data-format=aac "$$text" || exit 1; \
+		if command -v ffmpeg >/dev/null && [ -f "$(DIST_DIR)/shots/$$name.png" ]; then \
+			ffmpeg -y -v error -loop 1 -framerate 30 -i "$(DIST_DIR)/shots/$$name.png" \
+				-f lavfi -i "color=c=$(BACKDROP):s=900x260:r=30" \
+				-i "$(DIST_DIR)/voice/$$name.m4a" \
+				-filter_complex "[0:v]scale=760:-2[img];[1:v][img]overlay=(W-w)/2:(H-h)/2:shortest=1,format=yuv420p[v]" \
+				-map "[v]" -map 2:a -c:v libx264 -tune stillimage -crf 20 -c:a copy \
+				-shortest -movflags +faststart "docs/audio/$$name.mp4" || exit 1; \
+		else \
+			cp "$(DIST_DIR)/voice/$$name.m4a" "docs/audio/$$name.mp4"; \
+		fi; \
+		echo "   docs/audio/$$name.mp4  —  $$text"; \
 	done < $(DIST_DIR)/shots/announcements.tsv
+	@command -v ffmpeg >/dev/null || echo "   (audio only — install ffmpeg to show the island state with each line)"
 
 ## Cycle the HUD through every state with the microphone and hotkeys inactive.
 ## Turn VoiceOver on first (Cmd-F5) to hear the announcements as well as see
