@@ -17,11 +17,11 @@ struct MenuBarContent: View {
     // Qualified: SwiftUI declares its own `Settings` scene type.
     private var settings: MasterfulKit.Settings { environment.settingsStore.settings }
 
-    /// What Mercor mode is doing, while it is on. Says plainly when Apple's
+    /// What Work mode is doing, while it is on. Says plainly when Apple's
     /// recogniser is standing in, so a dictation is never silently taken by the
     /// engine the user did not choose.
-    private var mercorNote: String? {
-        guard settings.mercorMode else { return nil }
+    private var workModeNote: String? {
+        guard settings.workMode else { return nil }
         switch coordinator.whisperStatus {
         case .ready:
             return "Whisper on this Mac · clean-up locked to Rules"
@@ -60,11 +60,11 @@ struct MenuBarContent: View {
 
             Divider()
 
-            Toggle("Mercor Mode", isOn: Binding(
-                get: { settings.mercorMode },
-                set: { coordinator.setMercorMode($0) }
+            Toggle("Work Mode", isOn: Binding(
+                get: { settings.workMode },
+                set: { coordinator.setWorkMode($0) }
             ))
-            if let note = mercorNote {
+            if let note = workModeNote {
                 Text(note)
             }
 
@@ -78,8 +78,8 @@ struct MenuBarContent: View {
                     Text(mode.displayName).tag(mode)
                 }
             }
-            // Mercor mode overrides it; a live picker would claim otherwise.
-            .disabled(settings.mercorMode)
+            // Work mode overrides it; a live picker would claim otherwise.
+            .disabled(settings.workMode)
 
             Divider()
 

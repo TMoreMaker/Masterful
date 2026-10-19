@@ -75,14 +75,14 @@ public struct Settings: Sendable, Codable, Equatable {
     public var minimumHoldMilliseconds: Int = 220
 
     public var refinement: RefinementMode = .rules
-    /// Mercor mode: Whisper on this Mac, primed with the vocabulary, and
+    /// Work mode: Whisper on this Mac, primed with the vocabulary, and
     /// clean-up locked to rules whatever `refinement` says.
     ///
-    /// For work whose client forbids AI-written answers. Whisper writes down
-    /// what was said and runs entirely offline once its model is on disk; no
-    /// model may reword anything while this is on, so a stray setting can never
-    /// put a language model between the speaker and the answer.
-    public var mercorMode: Bool = false
+    /// For writing where every word has to be the speaker's own. Whisper writes
+    /// down what was said and runs entirely offline once its model is on disk;
+    /// no model may reword anything while this is on, so a stray setting can
+    /// never put a language model between the speaker and the text.
+    public var workMode: Bool = false
     public var insertion: InsertionStrategy = .automatic
     /// Names and jargon, fed to the recogniser as contextual bias.
     public var vocabulary: [String] = []
@@ -159,7 +159,7 @@ public struct Settings: Sendable, Codable, Equatable {
         doubleTapWindowMilliseconds = value(.doubleTapWindowMilliseconds, defaults.doubleTapWindowMilliseconds)
         minimumHoldMilliseconds = value(.minimumHoldMilliseconds, defaults.minimumHoldMilliseconds)
         refinement = value(.refinement, defaults.refinement)
-        mercorMode = value(.mercorMode, defaults.mercorMode)
+        workMode = value(.workMode, defaults.workMode)
         insertion = value(.insertion, defaults.insertion)
         vocabulary = value(.vocabulary, defaults.vocabulary)
         localeIdentifier = value(.localeIdentifier, defaults.localeIdentifier)
@@ -189,7 +189,7 @@ public struct Settings: Sendable, Codable, Equatable {
         try container.encode(doubleTapWindowMilliseconds, forKey: .doubleTapWindowMilliseconds)
         try container.encode(minimumHoldMilliseconds, forKey: .minimumHoldMilliseconds)
         try container.encode(refinement, forKey: .refinement)
-        try container.encode(mercorMode, forKey: .mercorMode)
+        try container.encode(workMode, forKey: .workMode)
         try container.encode(insertion, forKey: .insertion)
         try container.encode(vocabulary, forKey: .vocabulary)
         try container.encode(localeIdentifier, forKey: .localeIdentifier)
@@ -214,7 +214,7 @@ public struct Settings: Sendable, Codable, Equatable {
         /// Read only, for migration from single-binding installs.
         case pushToTalk
         case enableDoubleTapLatch, doubleTapWindowMilliseconds, minimumHoldMilliseconds
-        case refinement, mercorMode, insertion, vocabulary, localeIdentifier
+        case refinement, workMode, insertion, vocabulary, localeIdentifier
         case defaultProfile, appProfiles, remoteProvider
         case historyEnabled, historyRetentionDays, hasCompletedOnboarding
         case voiceCommandsEnabled, voiceCommandPrefix

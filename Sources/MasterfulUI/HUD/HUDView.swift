@@ -226,11 +226,11 @@ public struct HUDView: View {
             // The one piece of state the waveform cannot convey: whether
             // releasing the key will stop this.
             //
-            // In Mercor mode the microphone becomes a briefcase: the one moment
+            // In Work mode the microphone becomes a briefcase: the one moment
             // the user is looking at the island is also the moment it matters
             // which engine is about to write their answer. Latched keeps its
             // own glyph, since how to stop is the more urgent thing to say.
-            glyph(mode == .latched ? "infinity" : (model.isMercorMode ? "briefcase.fill" : "mic.fill"))
+            glyph(mode == .latched ? "infinity" : (model.isWorkMode ? "briefcase.fill" : "mic.fill"))
                 .transition(.islandContent)
 
         case .transcribing, .refining, .inserting:
@@ -436,7 +436,7 @@ public struct HUDView: View {
         case .idle: model.notice?.spoken ?? "Masterful idle"
         case .listening(let mode):
             (mode == .latched ? "Listening continuously" : "Listening")
-                + (model.isMercorMode ? ", Mercor mode" : "")
+                + (model.isWorkMode ? ", Work mode" : "")
         case .transcribing, .refining: "Transcribing"
         case .inserting: "Inserting text"
         case .delivered(let delivery):

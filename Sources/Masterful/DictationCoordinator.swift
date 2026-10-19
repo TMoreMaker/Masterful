@@ -31,7 +31,7 @@ public final class DictationCoordinator {
         case failed(String)
     }
 
-    /// Where Whisper is, for Mercor mode. Apple's recogniser stands in until
+    /// Where Whisper is, for Work mode. Apple's recogniser stands in until
     /// it is `.ready`, so turning the mode on never leaves the user unable to
     /// dictate while a model downloads.
     public enum WhisperStatus: Equatable {
@@ -64,7 +64,7 @@ public final class DictationCoordinator {
     private let capture = AudioCaptureEngine()
     private let ducker = OutputDucker()
     private let transcriber: any TranscriptionEngine
-    /// Mercor mode's recogniser. Loaded only while the mode is on.
+    /// Work mode's recogniser. Loaded only while the mode is on.
     private let whisper = WhisperEngine()
     /// The recogniser for the dictation in flight, chosen when it starts, so
     /// toggling the mode mid-sentence cannot split one answer across two.
@@ -158,7 +158,7 @@ public final class DictationCoordinator {
             return
         }
 
-        if settings.mercorMode { loadWhisper() }
+        if settings.workMode { loadWhisper() }
 
         hotkeyActive = hotkeys.start()
         readiness = hotkeyActive ? .ready : .needsAccessibility
@@ -175,13 +175,13 @@ public final class DictationCoordinator {
         hotkeys.setRecording(isRecording)
     }
 
-    // MARK: - Mercor mode
+    // MARK: - Work mode
 
-    /// Mercor mode is on *and* Whisper is ready to take the next dictation.
-    public var isUsingWhisper: Bool { settings.mercorMode && whisperStatus == .ready }
+    /// Work mode is on *and* Whisper is ready to take the next dictation.
+    public var isUsingWhisper: Bool { settings.workMode && whisperStatus == .ready }
 
-    public func setMercorMode(_ on: Bool) {
-        settingsStore.update { $0.mercorMode = on }
+    public func setWorkMode(_ on: Bool) {
+        settingsStore.update { $0.workMode = on }
         if on {
             loadWhisper()
         } else {
@@ -202,7 +202,7 @@ public final class DictationCoordinator {
         Task { @MainActor [weak self, whisper] in
             do {
                 try await whisper.load(progress: progress)
-                guard let self, self.settings.mercorMode else { await whisper.unload(); return }
+                guard let self, self.settings.workMode else { await whisper.unload(); return }
                 self.whisperStatus = .ready
             } catch {
                 Log.transcription.error("Whisper failed to load: \(error.localizedDescription, privacy: .public)")
@@ -216,10 +216,10 @@ public final class DictationCoordinator {
         whisperStatus = fraction < 1 ? .downloading(fraction) : .loading
     }
 
-    /// What clean-up may do right now. Mercor mode overrides the setting: no
+    /// What clean-up may do right now. Work mode overrides the setting: no
     /// language model rewords an answer while it is on.
     private var effectiveRefinement: RefinementMode {
-        settings.mercorMode ? .rules : settings.refinement
+        settings.workMode ? .rules : settings.refinement
     }
 
     public func applySettingsChange() {
@@ -427,7 +427,7 @@ public final class DictationCoordinator {
 
         let vocabulary = effectiveVocabulary
         activeEngine = isUsingWhisper ? whisper : transcriber
-        hud.model.isMercorMode = isUsingWhisper
+        hud.model.isWorkMode = isUsingWhisper
 
         sessionTask = Task { @MainActor [weak self] in
             guard let self else { return }

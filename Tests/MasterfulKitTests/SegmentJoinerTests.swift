@@ -46,8 +46,8 @@ struct SegmentJoinerTests {
 
     @Test("Vocabulary terms keep their casing")
     func vocabularyKeepsCase() {
-        #expect(SegmentJoiner.join("when I list the issues for", "Mercor they come back.", vocabulary: ["Mercor"])
-            == "when I list the issues for Mercor they come back.")
+        #expect(SegmentJoiner.join("when I list the issues for", "Figma they come back.", vocabulary: ["Figma"])
+            == "when I list the issues for Figma they come back.")
     }
 
     @Test("Weekdays keep their capital")

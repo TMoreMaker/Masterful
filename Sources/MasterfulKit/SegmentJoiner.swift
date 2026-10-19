@@ -81,7 +81,7 @@ public enum SegmentJoiner {
         if alwaysCapitalised.contains(lower) { return true }
 
         // The recogniser capitalised it somewhere it had no sentence to start,
-        // so it believes this is a name — "Masterful", "Mercor".
+        // so it believes this is a name — "Masterful", "Figma".
         return appearsCapitalisedMidSentence(word, in: context)
     }
 

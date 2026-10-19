@@ -16,7 +16,7 @@ struct VocabularyLearnerTests {
     func nameIsLearned() {
         #expect(learner.term(from: word("tandu", "Thando")) == "Thando")
         #expect(learner.term(from: word("tender", "Thando,")) == "Thando")
-        #expect(learner.term(from: word("mercy", "Mercor")) == "Mercor")
+        #expect(learner.term(from: word("figure", "Figma")) == "Figma")
     }
 
     @Test("An ordinary word is not learned")

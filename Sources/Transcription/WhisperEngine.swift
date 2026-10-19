@@ -4,7 +4,7 @@ import Foundation
 import MasterfulKit
 import WhisperKit
 
-/// Whisper, on this Mac, for Mercor mode.
+/// Whisper, on this Mac, for Work mode.
 ///
 /// Chosen over Apple's recogniser for written answers on the evidence of the
 /// user's own speech (`Tools/engine-compare`): it hears the whole answer before
@@ -102,7 +102,7 @@ public actor WhisperEngine: TranscriptionEngine {
         Log.transcription.info("Whisper loaded")
     }
 
-    /// Frees the model's memory, which is most of a gigabyte. Mercor mode
+    /// Frees the model's memory, which is most of a gigabyte. Work mode
     /// being off is no reason to hold it.
     public func unload() {
         pipe = nil
@@ -113,7 +113,7 @@ public actor WhisperEngine: TranscriptionEngine {
     // MARK: - TranscriptionEngine
 
     /// Takes whatever format capture produces and converts it here, so turning
-    /// Mercor mode on never has to rebuild the audio graph.
+    /// Work mode on never has to rebuild the audio graph.
     public func prepare(locale: Locale) async throws -> AVAudioFormat? { nil }
 
     public func beginSession(

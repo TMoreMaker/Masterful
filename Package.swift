@@ -19,7 +19,7 @@ let package = Package(
         .executable(name: "masterful-asr-eval", targets: ["ASREvalTool"]),
     ],
     dependencies: [
-        // Whisper on Core ML, for Mercor mode: a recogniser that hears the whole
+        // Whisper on Core ML, for Work mode: a recogniser that hears the whole
         // answer before punctuating it and takes the user's names as a prompt.
         // Pinned exactly — a speech model's behaviour is the product.
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "1.1.1"),
@@ -35,7 +35,7 @@ let package = Package(
         .target(name: "AudioCapture", dependencies: ["MasterfulKit"]),
 
         // Speech-to-text behind a protocol: Apple's SpeechAnalyzer by default,
-        // Whisper in Mercor mode.
+        // Whisper in Work mode.
         // Depends on AudioCapture for the buffer transport type: transcription
         // consumes captured audio, so the edge points the right way.
         .target(
