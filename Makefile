@@ -17,7 +17,7 @@ CONTENTS    := $(APP_BUNDLE)/Contents
 #   make app SIGN_ID="Developer ID Application: ..."
 SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk -F'"' '/Apple Development|Developer ID Application/ {print $$2; exit}')
 
-.PHONY: all build app sign install run stop test clean reset-permissions icon shots voice preview probe probe-mouse eval record eval-asr eval-asr-list
+.PHONY: all build app sign install run stop test clean reset-permissions icon shots voice preview probe probe-corrections probe-corrections-auto window-preview compare-engines probe-mouse eval record eval-asr eval-asr-list
 
 all: app
 
@@ -51,9 +51,30 @@ eval-asr-list:
 probe:
 	@swift Tools/insertion-probe.swift
 
+## Check whether edits made after a dictation are visible to Masterful. Focus a
+## field with text in it, edit a word, then click into another field.
+probe-corrections:
+	@swift Tools/correction-probe.swift
+
+## The same check, unattended: opens a test page in Chrome and makes the edit.
+probe-corrections-auto:
+	@swift Tools/correction-probe.swift --auto
+
+## The main window over seeded sample history. PAGE=overview|history|corrections
+window-preview:
+	@swift run WindowPreview $(PAGE)
+
+## Record an answer in the browser and see Apple's recogniser and Whisper side
+## by side. Needs WHISPERKIT_CLI and WHISPER_MODEL set; serves localhost:8791.
+compare-engines:
+	@swift build --product masterful-asr-eval
+	@python3 Tools/engine-compare/server.py
+
 ## Regenerate the app icon. Drawn in code so it stays reviewable in a diff.
 icon:
-	swift Tools/make-icon.swift
+	@swift Tools/make-icon.swift
+	@cp build/AppIcon.iconset/icon_256x256.png docs/icon.png
+	@echo "   docs/icon.png"
 
 ## Render the island's documented states out of HUDView itself, plus the state
 ## strip and the coalescence as GIFs in docs/island. Same reasoning as `icon`:
@@ -76,7 +97,18 @@ shots:
 		-crop 200x76+700+0 +repage \
 		-resize 400% -dither None -colors 64 -layers OptimizeTransparency \
 		../../docs/island/morph-closeup.gif && \
-	echo "   docs/island/morph-closeup.gif" 
+	echo "   docs/island/morph-closeup.gif" && \
+	magick \( 01-listening.png -crop 1120x112+0+0 +repage \) \
+		\( 03-transcribing.png -crop 1120x112+0+0 +repage \) \
+		\( 04-delivered.png -crop 1120x112+0+0 +repage \) \
+		-append ../../docs/island/loop.png && \
+	echo "   docs/island/loop.png" && \
+	magick 05-delivered-clipboard.png -crop 1120x248+0+0 +repage \
+		../../docs/island/clipboard.png && \
+	echo "   docs/island/clipboard.png" && \
+	magick 06-blocked.png -crop 1120x268+0+0 +repage \
+		../../docs/island/refusal.png && \
+	echo "   docs/island/refusal.png"
 
 ## Render what a VoiceOver user hears into docs/audio, through the same system
 ## speech engine VoiceOver itself speaks with. The text comes from HUDAnnouncer,
