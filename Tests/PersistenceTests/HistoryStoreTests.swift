@@ -30,6 +30,30 @@ struct HistoryStoreTests {
         #expect(store.recent().count == 1)
     }
 
+    @Test("The latest dictation skips voice commands and follows deletion")
+    func latestDictation() throws {
+        let store = try makeStore()
+        #expect(store.latestDictationText() == nil)
+
+        func add(_ text: String, isCommandOnly: Bool = false) -> DictationRecord {
+            store.record(
+                rawTranscript: text, finalText: text, speechDuration: 2,
+                applicationBundleID: nil, applicationName: nil,
+                engineName: "Test", refinementMode: .rules,
+                destination: .focusedField, isCommandOnly: isCommandOnly
+            )
+        }
+
+        _ = add("First")
+        let second = add("Second")
+        // Its final text is the word "Enter", which nobody wants on the clipboard.
+        _ = add("Enter", isCommandOnly: true)
+        #expect(store.latestDictationText() == "Second")
+
+        store.delete(second)
+        #expect(store.latestDictationText() == "First")
+    }
+
     @Test("Speaking pace ignores implausibly short utterances")
     func pacePlausibility() throws {
         let store = try makeStore()

@@ -90,6 +90,10 @@ public enum Token {
         /// travel rather than pump in unison.
         public static let levelHistory: Int = 16
         public static let glyph: CGFloat = 15
+        /// The menu bar panel, and the round buttons in it. The button is the
+        /// size of the ones in macOS's own camera and Control Centre modules.
+        public static let menuBarPanelWidth: CGFloat = 300
+        public static let menuBarPanelButton: CGFloat = 28
     }
 
     public enum Opacity {

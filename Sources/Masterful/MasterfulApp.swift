@@ -13,7 +13,7 @@ struct MasterfulApp: App {
         } label: {
             Image(systemName: menuBarSymbol)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
     }
 
     /// The menu bar icon is the app's only persistent surface, so it doubles as

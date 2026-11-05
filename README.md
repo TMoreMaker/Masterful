@@ -301,7 +301,12 @@ against last, an eight-week bar chart, and the most frequent fixes](docs/window/
 <div align="center"><sub>Rendered over sample history by <code>make window-preview</code>,
 never from a real one.</sub></div>
 
-Opened from the menu bar, and still with no Dock icon. **Overview** puts misheard
+The menu bar icon opens a panel of round buttons, built the way macOS builds its
+camera and Control Centre modules: Work Mode and the clean-up mode light up in
+plum and take one click, and *Copy Last Dictation* puts the last thing you said on
+the clipboard without going near the History page.
+
+The main window opens from there, and still with no Dock icon. **Overview** puts misheard
 words per hundred this week against last — with the direction written out, never
 colour alone — over an eight-week chart in which the current week is drawn as
 provisional, because it is. **History** shows each dictation beside what was heard

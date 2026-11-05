@@ -70,7 +70,8 @@ public final class HistoryStore {
         applicationName: String?,
         engineName: String,
         refinementMode: RefinementMode,
-        destination: Destination
+        destination: Destination,
+        isCommandOnly: Bool = false
     ) -> DictationRecord {
         let record = DictationRecord(
             rawTranscript: rawTranscript,
@@ -82,9 +83,22 @@ public final class HistoryStore {
             refinementMode: refinementMode,
             destination: destination
         )
+        record.isCommandOnly = isCommandOnly
         context.insert(record)
         save()
         return record
+    }
+
+    /// The most recent thing actually said. Reads `revision` so a view showing
+    /// it follows new dictations and deletions alike.
+    public func latestDictationText() -> String? {
+        _ = revision
+        var descriptor = FetchDescriptor<DictationRecord>(
+            predicate: #Predicate { !$0.isCommandOnly },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first?.finalText
     }
 
     public func recent(limit: Int = 200) -> [DictationRecord] {

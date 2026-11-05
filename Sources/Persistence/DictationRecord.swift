@@ -31,6 +31,9 @@ public final class DictationRecord {
     public var engineName: String = ""
     public var refinementModeRaw: String = RefinementMode.rules.rawValue
     public var wentToClipboard: Bool = false
+    /// Only voice commands, so `finalText` names them ("Enter") rather than
+    /// holding anything that was said.
+    public var isCommandOnly: Bool = false
 
     /// Whether Masterful saw the field afterwards and could look for corrections.
     /// Only watched dictations count towards the correction rate: a dictation

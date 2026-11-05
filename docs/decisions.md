@@ -216,6 +216,12 @@ turned back into text.
 
 ## Privacy and packaging
 
+**Copy Last Dictation reads history, so deleting a dictation there also stops it
+being copied.** The exception is one that history does not hold, because insertion
+failed or history is off: that is kept in memory only, and replaced by the next
+dictation. Voice commands are skipped, since the text of "dash enter" is not
+something anyone wants on the clipboard.
+
 **History stores transcripts, never audio.** Keeping recordings would make this
 database the single most sensitive file on the machine, and nothing the app does
 needs them once the transcript exists. The store is explicitly local — no

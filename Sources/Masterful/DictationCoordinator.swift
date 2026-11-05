@@ -49,6 +49,16 @@ public final class DictationCoordinator {
     public private(set) var phase: DictationPhase = .idle
     public private(set) var hotkeyActive = false
 
+    /// Said but not in history: insertion failed, or history is off. In memory
+    /// only, and gone with the next dictation.
+    private var unrecordedDictation: String?
+
+    /// What "Copy Last Dictation" copies. History is the source wherever it can
+    /// be, so deleting a dictation there also stops it being copied here.
+    public var lastDictation: String? {
+        unrecordedDictation ?? historyStore.latestDictationText()
+    }
+
     /// Live input level, mirrored out for the onboarding microphone test.
     public var onInputLevel: ((AudioLevel) -> Void)?
 
@@ -571,6 +581,15 @@ public final class DictationCoordinator {
         // stays identical for ordinary dictation.
         let segments = pendingSegments.isEmpty ? [TranscriptSegment.text(text)] : pendingSegments
 
+        // Held before attempting insertion: a dictation that fails to land is
+        // the one most worth being able to copy.
+        let spoken = segments.compactMap { segment -> String? in
+            if case .text(let piece) = segment { piece } else { nil }
+        }.joined(separator: " ")
+        if !spoken.isEmpty {
+            unrecordedDictation = spoken
+        }
+
         Task { @MainActor [weak self] in
             guard let self else { return }
 
@@ -608,8 +627,12 @@ public final class DictationCoordinator {
                 finalText: insertedText.isEmpty ? (summary ?? text) : insertedText,
                 bundleID: bundleID,
                 appName: appName,
-                destination: destination
+                destination: destination,
+                isCommandOnly: insertedText.isEmpty
             )
+            if record != nil, !insertedText.isEmpty {
+                self.unrecordedDictation = nil
+            }
             // Only a plain dictation into a field can be followed: commands move
             // focus or change the text themselves, and the clipboard is not a
             // field at all.
@@ -649,7 +672,8 @@ public final class DictationCoordinator {
         finalText: String,
         bundleID: String?,
         appName: String?,
-        destination: Destination
+        destination: Destination,
+        isCommandOnly: Bool
     ) -> DictationRecord? {
         guard settings.historyEnabled else { return nil }
         return historyStore.record(
@@ -660,7 +684,8 @@ public final class DictationCoordinator {
             applicationName: appName,
             engineName: activeEngine.displayName,
             refinementMode: effectiveRefinement,
-            destination: destination
+            destination: destination,
+            isCommandOnly: isCommandOnly
         )
     }
 

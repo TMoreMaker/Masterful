@@ -13,6 +13,7 @@ import SwiftUI
 ///   make window-preview                          # Overview
 ///   make window-preview PAGE=corrections
 ///   make window-preview PAGE=settings/cleanup
+///   make window-preview PAGE=panel/work          # idle, work, empty or blocked
 ///   MASTERFUL_APPEARANCE=dark make window-preview PAGE=onboarding/hotkey
 @main
 @MainActor
@@ -43,6 +44,11 @@ enum WindowPreview {
             let tab = parts.dropFirst().first.flatMap(SettingsTab.init(rawValue:)) ?? .general
             WindowManager.shared.show(.settings, title: title, size: CGSize(width: 560, height: 520), resizable: false) {
                 SettingsView(services: services, initialTab: tab)
+            }
+        case "panel":
+            title = "Menu Bar Panel"
+            WindowManager.shared.show(.main, title: title, size: CGSize(width: 300, height: 560), resizable: false) {
+                PanelPreview(state: parts.dropFirst().first ?? "idle")
             }
         case "onboarding":
             title = "Set up Masterful"
@@ -102,5 +108,40 @@ enum WindowPreview {
                 for entry in store.corrections(for: record) { entry.createdAt = date }
             }
         }
+    }
+}
+
+/// The menu bar panel in one state, working, over no real settings.
+private struct PanelPreview: View {
+    @State private var workMode: Bool
+    @State private var refinement = RefinementMode.onDevice
+    private let state: String
+
+    init(state: String) {
+        self.state = state
+        _workMode = State(initialValue: state == "work")
+    }
+
+    var body: some View {
+        MenuBarPanel(model: MenuBarPanelModel(
+            status: state == "blocked" ? "Needs Accessibility access" : "Ready",
+            hint: state == "blocked" ? nil : "Hold 🌐 Globe (fn) to dictate\nDouble-tap to keep listening",
+            remedies: state == "blocked" ? [.init(title: "Grant Accessibility access…") {}] : [],
+            workMode: workMode,
+            workModeNote: workMode ? "Whisper on this Mac · clean-up locked to Tidy" : nil,
+            setWorkMode: { workMode = $0 },
+            refinement: refinement,
+            setRefinement: { refinement = $0 },
+            lastDictation: state == "empty" ? nil : "Thanks for sending that over. I'll have a proper look this afternoon and come back to you before the end of the day.",
+            commands: [
+                .init(title: "Open Masterful", key: "o") {},
+                .init(title: "History") {},
+                .init(title: "Settings…", key: ",") {},
+                .init(title: "Run Setup Again…") {},
+                .init(title: "Quit Masterful", key: "q") {},
+            ]
+        ))
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(.regularMaterial)
     }
 }
