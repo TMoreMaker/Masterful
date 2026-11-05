@@ -17,7 +17,7 @@ CONTENTS    := $(APP_BUNDLE)/Contents
 #   make app SIGN_ID="Developer ID Application: ..."
 SIGN_ID ?= $(shell security find-identity -v -p codesigning | awk -F'"' '/Apple Development|Developer ID Application/ {print $$2; exit}')
 
-.PHONY: all build app sign install run stop test clean reset-permissions icon shots voice preview probe probe-corrections probe-corrections-auto window-preview compare-engines probe-mouse eval record eval-asr eval-asr-list
+.PHONY: all build app sign install run stop test clean reset-permissions icon shots voice preview probe probe-corrections probe-corrections-auto window-preview panel-shots compare-engines probe-mouse eval record eval-asr eval-asr-list
 
 all: app
 
@@ -63,6 +63,20 @@ probe-corrections-auto:
 ## The main window over seeded sample history. PAGE=overview|history|corrections
 window-preview:
 	@swift run WindowPreview $(PAGE)
+
+## The menu bar panel's README images, over sample text rather than a real
+## dictation. Screen Recording permission for the terminal is needed.
+panel-shots:
+	@swift build --product WindowPreview
+	@mkdir -p docs/window
+	@for shot in idle:light work:dark; do \
+		state=$${shot%:*}; look=$${shot#*:}; out=$$(mktemp); \
+		MASTERFUL_APPEARANCE=$$look $$(swift build --show-bin-path)/WindowPreview panel/$$state > $$out & pid=$$!; \
+		sleep 3; \
+		screencapture -x -l $$(awk '{print $$2}' $$out) docs/window/panel-$$state.png; \
+		kill $$pid; rm -f $$out; \
+		echo "   docs/window/panel-$$state.png"; \
+	done
 
 ## Record an answer in the browser and see Apple's recogniser and Whisper side
 ## by side. Needs WHISPERKIT_CLI and WHISPER_MODEL set; serves localhost:8791.

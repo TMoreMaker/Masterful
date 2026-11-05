@@ -47,9 +47,7 @@ enum WindowPreview {
             }
         case "panel":
             title = "Menu Bar Panel"
-            WindowManager.shared.show(.main, title: title, size: CGSize(width: 300, height: 560), resizable: false) {
-                PanelPreview(state: parts.dropFirst().first ?? "idle")
-            }
+            showPanel(PanelPreview(state: parts.dropFirst().first ?? "idle"), title: title)
         case "onboarding":
             title = "Set up Masterful"
             let name = parts.dropFirst().first ?? "welcome"
@@ -79,6 +77,26 @@ enum WindowPreview {
             }
         }
         app.run()
+    }
+
+    /// In a bare window, as the menu bar draws it: `make panel-shots` captures this
+    /// rather than the real one, which would show the user's last dictation.
+    static func showPanel(_ panel: some View, title: String) {
+        let host = NSHostingView(rootView: panel)
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: host.fittingSize),
+            styleMask: .borderless, backing: .buffered, defer: false
+        )
+        window.title = title
+        window.contentView = host
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        // Clear of the pointer, or a row is captured with its hover highlight on.
+        let screen = NSScreen.main?.visibleFrame ?? .zero
+        let onRight = NSEvent.mouseLocation.x < screen.midX
+        window.setFrameOrigin(NSPoint(x: onRight ? screen.maxX - window.frame.width - 40 : screen.minX + 40, y: screen.minY + 40))
+        window.orderFrontRegardless()
     }
 
     /// Fixes drawn from the kind real dictation produces, falling week on week.
@@ -141,7 +159,6 @@ private struct PanelPreview: View {
                 .init(title: "Quit Masterful", key: "q") {},
             ]
         ))
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(.regularMaterial)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Token.Radius.lg, style: .continuous))
     }
 }

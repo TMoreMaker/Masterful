@@ -293,6 +293,37 @@ Accessibility API is least trustworthy.
 
 ---
 
+## One click from the menu bar
+
+<p align="center">
+  <img src="docs/window/panel-idle.png" width="320" alt="The menu bar panel in light mode: a status line, then round buttons for Work Mode, Raw, Tidy, On-device AI and Cloud AI with On-device AI lit in plum, Copy Last Dictation with a preview of the text, and the app's commands">
+  <img src="docs/window/panel-work.png" width="320" alt="The same panel in dark mode with Work Mode lit: its note says clean-up is locked to Tidy, Tidy stays lit, and the other modes are dimmed">
+</p>
+
+<div align="center"><sub>Rendered over sample text by <code>make panel-shots</code>,
+never from a real dictation.</sub></div>
+
+The menu bar icon opens a panel of round buttons, built the way macOS builds its
+camera and Control Centre modules. The settings that change from one dictation to
+the next say their state at a glance and take one click: lit in plum means on, and
+the symbol fills as well, so the state is never carried by colour alone.
+
+**Work Mode locks clean-up to Tidy, and the panel shows it.** Tidy stays lit and the
+others dim, because what matters is what the next dictation will actually get.
+Your own choice is kept, and comes back when Work Mode goes off.
+
+***Copy Last Dictation* is there for when the words did not end up where you
+wanted them.** One click, with a preview of what you are about to copy, and no
+trip to the History page. A dictation that failed to insert can still be copied,
+and so can one made with history off, held in memory until the next one. Delete a
+dictation from History and it can no longer be copied here. Spoken commands are
+skipped, because the text of "dash enter" is not something anyone wants to paste.
+
+Opening the panel leaves the app you are dictating into in front, and closing it
+hands focus straight back.
+
+---
+
 ## A window for what it has learned
 
 ![Masterful's main window, on sample data: misheard words per hundred this week
@@ -301,12 +332,7 @@ against last, an eight-week bar chart, and the most frequent fixes](docs/window/
 <div align="center"><sub>Rendered over sample history by <code>make window-preview</code>,
 never from a real one.</sub></div>
 
-The menu bar icon opens a panel of round buttons, built the way macOS builds its
-camera and Control Centre modules: Work Mode and the clean-up mode light up in
-plum and take one click, and *Copy Last Dictation* puts the last thing you said on
-the clipboard without going near the History page.
-
-The main window opens from there, and still with no Dock icon. **Overview** puts misheard
+Opened from the menu bar, and still with no Dock icon. **Overview** puts misheard
 words per hundred this week against last — with the direction written out, never
 colour alone — over an eight-week chart in which the current week is drawn as
 provisional, because it is. **History** shows each dictation beside what was heard
