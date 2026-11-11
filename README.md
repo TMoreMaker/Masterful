@@ -688,3 +688,7 @@ summoned but never inferred.
 
 That page is a proposal, not a description of the current build, and says so at
 the top.
+
+# Licence
+
+Masterful is released under the [MIT License](LICENSE).
